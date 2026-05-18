@@ -1,0 +1,14 @@
+[Diapositiva 1]
+Buenos días a todos. Somos el grupo compuesto por Mauricio Acosta, Federico Bleuel, Marcos Bude y Pablo Dellaqua, y hoy vamos a presentar el desarrollo y las conclusiones de nuestro primer trabajo práctico de Análisis Numérico, centrado en la estimación de velocidad mediante análisis espectral.
+[Diapositiva 2]
+El objetivo principal de este trabajo fue utilizar herramientas de procesamiento digital como la Transformada de Rápida de Fourier y de Tiempo Corto para encontrar la velocidad de dos ambulancias. Tuvimos que analizar audios inmersos en mucho ruido urbano, enfrentándonos a un caos de sirena con frecuencia constante y otro de frecuencia variable.
+[Diapositiva 3]
+Al cargar las señales comprobamos que la frecuencia de muestreo era de 44100 Hz. Lo primero que notamos fue que los audios tenían una relación señal-ruido demasiado baja. Para limpiar esto, aplicamos un filtro Paso-Banda por convolución. Para no adivinar los cortes, hicimos una FFT previa, eligiendo el rango de 940 a 1050 Hz para la primera sirena, y de 1200 a 1500 Hz para la segunda.
+[Diapositiva 4]
+Para analizar la primera sirena, dividimos el audio en intervalos de medio segundo. Aquí observamos claramente el efecto Doppler: Al principio, cuando la ambulancia se acerca detectamos un pico agudo de 1062 Hz. A medida que pasa al lado del micrófono y se aleja, la frecuencia cae drásticamente hasta llegar a los 649 Hz.
+[Diapositiva 5]
+Para calcular la velocidad armamos un programa basado en la fórmula matemática del Efecto Doppler. Como no conocíamos la frecuencia real de la sirena, sacamos un promedio de todos los picos, obteniendo unos 1003 Hz. El programa procesó la velocidad mientras se acercaba y se alejaba, y al promediar todo, nos dio una velocidad final promedio de 67,42 km/h (18,73 m/s.)
+[Diapositiva 6]
+El escenario de la sirena 2 fue mucho más complejo. Su frecuencia variaba fuertemente entre 600 y 1500 Hz, por lo que no podíamos aplicar la misma fórmula que antes. Además el ruido de fondo era tan alto que la detección automática de picos se volvía errática e inconsistente. Básicamente, los picos reales se perdían y el programa detectaba fluctuaciones del ambiente.
+[Diapositiva 7]
+Para sortear este problema, decidimos implementar espectrogramas. Tras probar varios parámetros, notamos que las ventanas de 0,1 segundos nos daban la imagen más útil. Visualmente rastreamos que la oscilación rondaba los 1000 Hz, y al notar un cambio abrupto en la señal, determinamos que la ambulancia pasó frente al micrófono casi a los 3,9 segundos. Trazando una función sobre esto, el resultado final fue de 122,74 km/h (34,09 m/s).

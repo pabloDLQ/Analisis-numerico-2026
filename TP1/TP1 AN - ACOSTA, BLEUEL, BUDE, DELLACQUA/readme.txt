@@ -1,0 +1,1 @@
+En esta carpeta pusimos todo el código fuente que utilizamos para resolver, sin embargo para que funcione se necesita que esté dispuesto como en la página de github en la que trabajamos (https://github.com/pabloDLQ/tp1-analisis-numerico).
