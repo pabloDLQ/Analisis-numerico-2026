@@ -1,0 +1,6 @@
+tp2_env/
+venv/
+env/
+ENV/
+__pycache__/
+*.pyc
