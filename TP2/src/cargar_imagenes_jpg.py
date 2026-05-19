@@ -1,0 +1,74 @@
+import cv2
+import os
+from pathlib import Path
+
+
+def cargar_imagen(numero_imagen):
+    """
+    Carga una imagen JPG desde la carpeta data/.
+    
+    Args:
+        numero_imagen (int): Número de la imagen a cargar (1-7)
+    
+    Returns:
+        numpy.ndarray: Array con los datos de la imagen cargada
+                      Si se usa cv2, retorna en formato BGR
+    
+    Raises:
+        ValueError: Si el número de imagen está fuera del rango 1-7
+        FileNotFoundError: Si la imagen no existe en la carpeta data/
+    """
+    
+    # Validar rango de imágenes
+    if not isinstance(numero_imagen, int) or numero_imagen < 1 or numero_imagen > 7:
+        raise ValueError(f"El número de imagen debe estar entre 1 y 7, recibido: {numero_imagen}")
+    
+    # Construir la ruta de la imagen
+    ruta_base = Path(__file__).parent.parent  # Sube dos niveles desde src/cargar_imagenes_jpg.py
+    ruta_imagen = ruta_base / "data" / f"imagen{numero_imagen}.jpg"
+    
+    # Verificar que la ruta existe
+    if not ruta_imagen.exists():
+        raise FileNotFoundError(f"La imagen no existe en: {ruta_imagen}")
+    
+    # Cargar la imagen usando OpenCV
+    imagen = cv2.imread(str(ruta_imagen))
+    
+    if imagen is None:
+        raise RuntimeError(f"No se pudo cargar la imagen: {ruta_imagen}")
+    
+    return imagen
+
+
+def cargar_imagen_rgb(numero_imagen):
+    """
+    Carga una imagen JPG y la convierte a formato RGB.
+    
+    Args:
+        numero_imagen (int): Número de la imagen a cargar (1-7)
+    
+    Returns:
+        numpy.ndarray: Array con los datos de la imagen en formato RGB
+    """
+    
+    imagen_bgr = cargar_imagen(numero_imagen)
+    imagen_rgb = cv2.cvtColor(imagen_bgr, cv2.COLOR_BGR2RGB)
+    
+    return imagen_rgb
+
+
+# Ejemplo de uso
+if __name__ == "__main__":
+    # Cargar la imagen 1
+    try:
+        img = cargar_imagen(1)
+        print(f"Imagen cargada exitosamente")
+        print(f"Dimensiones: {img.shape}")
+        print(f"Tipo de dato: {img.dtype}")
+        
+        # Cargar en formato RGB
+        img_rgb = cargar_imagen_rgb(1)
+        print(f"Imagen RGB cargada: {img_rgb.shape}")
+        
+    except Exception as e:
+        print(f"Error: {e}")
