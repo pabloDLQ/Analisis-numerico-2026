@@ -40,7 +40,7 @@ def calcular_vector_traslacion_fourier(num_imagen1, num_imagen2):
     fft1 = np.fft.fft2(gray1)
     fft2 = np.fft.fft2(gray2)
     
-    # Calcular el espectro cruzado
+    # Calcular el espectro cruzado, multiplicando la FFT de la primera imagen por el conjugado de la FFT de la segunda
     espectro_cruzado = fft1 * np.conj(fft2)
     
     # Normalizar el espectro cruzado

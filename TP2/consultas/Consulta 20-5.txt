@@ -1,0 +1,13 @@
+Actividad 1,2,3 similares usando diferentes sistemas de coordenadas
+1ra cartesianas
+2 polares 
+3 log polares (coordenadas logarítmicas)
+
+2 y 3 aplicar (F1.F2*)/|F1.F2*| y delta de dirac
+se usa el mismo indicador pero con coordenadas distintas.
+
+
+4 seguir usando las propiedades de fase y magnitud
+la idea es que con las dos imagenes saque la fase de una y la magnitud de la otra, pero encontrar el factor k (vamos a tener que ir probando)
+la idea es terminar viendo una imagen nítida.
+
