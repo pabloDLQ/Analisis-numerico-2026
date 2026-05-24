@@ -15,13 +15,8 @@ def cargar_imagen(numero_imagen):
                       Si se usa cv2, retorna en formato BGR
     
     Raises:
-        ValueError: Si el número de imagen está fuera del rango 1-7
         FileNotFoundError: Si la imagen no existe en la carpeta data/
     """
-    
-    # Validar rango de imágenes
-    if not isinstance(numero_imagen, int) or numero_imagen < 1 or numero_imagen > 7:
-        raise ValueError(f"El número de imagen debe estar entre 1 y 7, recibido: {numero_imagen}")
     
     # Construir la ruta de la imagen
     ruta_base = Path(__file__).parent.parent  # Sube dos niveles desde src/cargar_imagenes_jpg.py

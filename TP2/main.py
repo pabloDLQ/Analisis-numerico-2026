@@ -1,9 +1,11 @@
 from src.inciso1 import calcular_vector_traslacion_fourier
-
+from src.crear_imagenes_cart import crear_imagen_cartesiana  
 
 def main():
     """Programa principal - Análisis de traslación entre imágenes"""
     
+    crear_imagen_cartesiana(1, 40, 10)  # Ejemplo de creación de imagen cartesiana
+
     print("="*60)
     print("CÁLCULO DE VECTORES DE TRASLACIÓN")
     print("="*60)
