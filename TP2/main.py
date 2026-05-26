@@ -1,22 +1,11 @@
-from src.inciso1 import calcular_vector_traslacion_fourier
-from src.crear_imagenes_cart import crear_imagen_cartesiana  
+from src.inciso1 import calcular_vector_traslacion_fourier, calcular_vector_traslacion_pixeles
+from src.inciso2 import calcular_angulo_rotacion
+from src.crear_imagenes_polar import rotar_y_guardar_imagen
+from src.crear_imagenes_cart import crear_imagen_cartesiana
 
-def main():
-    """Programa principal - Análisis de traslación entre imágenes"""
-    
-    crear_imagen_cartesiana(1, 40, 10)  # Ejemplo de creación de imagen cartesiana
 
-    print("="*60)
-    print("CÁLCULO DE VECTORES DE TRASLACIÓN")
-    print("="*60)
-    print()
-    
-    # Calcular vector de traslación entre imagen 1 y 2
-    print("Calculando vector de traslación entre imagen 1 y 2...")
-    print("Método: Espectro Cruzado Normalizado (FFT)")
-    print()
-    resultado = calcular_vector_traslacion_fourier(1, 2)
-    
+def mostrar_resultado(resultado):
+    """Muestra el resultado del cálculo de traslación de forma formateada"""
     print()
     print("-" * 60)
     print("RESULTADO - Vector de Traslación (Imagen 1 → Imagen 2)")
@@ -29,6 +18,95 @@ def main():
     print(f"  Método:                   {resultado['metodo']}")
     print("-" * 60)
     print()
+
+
+def mostrar_resultado_inciso2(resultado):
+    """Muestra el resultado del cálculo de rotación de forma formateada"""
+    print()
+    print("-" * 60)
+    print("RESULTADO - Ángulo de Rotación Detectado (Imagen 3 → Imagen 4)")
+    print("-" * 60)
+    print(f"  Ángulo de rotación:       {resultado['angulo_rotacion']:>8.2f}°")
+    print(f"  Desplazamiento θ:         {resultado['desplazamiento_theta']:>8.2f} píxeles")
+    print(f"  Pico de correlación:      {resultado['pico_correlacion']:>8.4f}")
+    print(f"  Confianza:                {resultado['confianza']:>8.2%}")
+    print(f"  Método:                   {resultado['metodo']}")
+    print("-" * 60)
+    print()
+
+
+def menu_inciso1():
+    """Menú para seleccionar el método de cálculo en el inciso 1"""
+    print("\n" + "="*60)
+    print("INCISO 1 - Cálculo de Vector de Traslación")
+    print("="*60)
+    print("\nSelecciona el método de cálculo:")
+    print("  1. Transformada de Fourier (Espectro Cruzado Normalizado)")
+    print("  2. Comparación directa de píxeles")
+    print()
+    
+    opcion = input("Ingresa tu opción (1 o 2): ").strip()
+    
+    if opcion == "1":
+        print("\nCalculando vector de traslación entre imagen 1 y 2...")
+        print("Método: Espectro Cruzado Normalizado (FFT)")
+        resultado = calcular_vector_traslacion_fourier(1, 2)
+        mostrar_resultado(resultado)
+        
+    elif opcion == "2":
+        print("\nCalculando vector de traslación entre imagen 1 y 2...")
+        print("Método: Comparación directa de píxeles")
+        print("(Esto puede tomar un momento...)")
+        resultado = calcular_vector_traslacion_pixeles(1, 2)
+        mostrar_resultado(resultado)
+        
+    else:
+        print("\nOpción inválida. Por favor, ingresa 1 o 2.")
+        menu_inciso1()
+
+
+def menu_inciso2():
+    """Menú para el inciso 2 - Detección de rotación"""
+    print("\n" + "="*60)
+    print("INCISO 2 - Detección de Ángulo de Rotación")
+    print("="*60)
+    print("\nCalculando ángulo de rotación entre imagen 3 y 4...")
+    print("Método: Mapeo Polar de Espectro FFT")
+    print("(Esto puede tomar un momento...)")
+    print()
+    
+    resultado = calcular_angulo_rotacion(3, 4)
+    mostrar_resultado_inciso2(resultado)
+
+
+def menu_principal():
+    """Menú principal - Selecciona el inciso a probar"""
+    print("\n" + "="*60)
+    print("ANÁLISIS NUMÉRICO 2026 - TP2")
+    print("="*60)
+    print("\nSelecciona el inciso que deseas probar:")
+    print("  1. Inciso 1 - Cálculo de vectores de traslación")
+    print("  2. Inciso 2 - Registro de rotación")
+    print()
+    
+    opcion = input("Ingresa tu opción (1 o 2): ").strip()
+    
+    if opcion == "1":
+        menu_inciso1()
+    elif opcion == "2":
+        menu_inciso2()
+    else:
+        print("\nOpción inválida. Por favor, ingresa 1 o 2.")
+        menu_principal()
+
+
+def main():
+    """Programa principal - Análisis de traslación entre imágenes"""
+    
+    rotar_y_guardar_imagen(3, -122.34)
+
+    # Mostrar menú
+    menu_principal()
 
 
 if __name__ == "__main__":

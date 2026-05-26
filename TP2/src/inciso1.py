@@ -85,6 +85,91 @@ def calcular_vector_traslacion_fourier(num_imagen1, num_imagen2):
     }
 
 
+def calcular_vector_traslacion_pixeles(num_imagen1, num_imagen2, rango_busqueda=50):
+    """
+    Calcula el vector de traslación entre dos imágenes comparando píxeles directamente.
+    
+    Utiliza búsqueda de desplazamiento por correlación directa de píxeles:
+    1. Carga ambas imágenes y las convierte a escala de grises
+    2. Itera sobre posibles desplazamientos en un rango definido
+    3. Calcula el Error Cuadrático Medio (MSE) para cada desplazamiento
+    4. Encuentra el desplazamiento que minimiza el error
+    
+    Args:
+        num_imagen1 (int): Número de la primera imagen (1-7)
+        num_imagen2 (int): Número de la segunda imagen (1-7)
+        rango_busqueda (int): Rango de búsqueda en píxeles (default: 50)
+    
+    Returns:
+        dict: Diccionario con las siguientes claves:
+            - 'dx': Desplazamiento en eje X
+            - 'dy': Desplazamiento en eje Y
+            - 'vector': Tupla (dx, dy)
+            - 'confianza': Métrica de confianza basada en el error (0-1)
+            - 'pico_correlacion': Valor de correlación en el desplazamiento óptimo
+            - 'metodo': Descripción del método utilizado
+    """
+    
+    # Cargar imágenes
+    img1 = cargar_imagen(num_imagen1)
+    img2 = cargar_imagen(num_imagen2)
+    
+    # Convertir a escala de grises
+    gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    
+    # Obtener dimensiones
+    height, width = gray1.shape
+    
+    # Inicializar variables de búsqueda
+    mejor_dx = 0
+    mejor_dy = 0
+    mejor_error = float('inf')
+    errores = {}
+    
+    # Búsqueda bruta sobre desplazamientos posibles
+    for dy in range(-rango_busqueda, rango_busqueda + 1):
+        for dx in range(-rango_busqueda, rango_busqueda + 1):
+            # Crear matriz de traslación
+            matriz_traslacion = np.float32([[1, 0, dx], [0, 1, dy]])
+            
+            # Desplazar la imagen 2
+            img2_desplazada = cv2.warpAffine(gray2, matriz_traslacion, (width, height))
+            
+            # Calcular el Error Cuadrático Medio (MSE)
+            error = np.mean((gray1 - img2_desplazada) ** 2)
+            errores[(dx, dy)] = error
+            
+            # Actualizar el mejor desplazamiento
+            if error < mejor_error:
+                mejor_error = error
+                mejor_dx = dx
+                mejor_dy = dy
+    
+    # Calcular confianza basada en el error
+    # Menor error = mayor confianza
+    errores_array = np.array(list(errores.values()))
+    error_min = np.min(errores_array)
+    error_max = np.max(errores_array)
+    
+    if error_max > error_min:
+        confianza = 1.0 - ((mejor_error - error_min) / (error_max - error_min))
+    else:
+        confianza = 1.0
+    
+    # Normalizar el pico de correlación (inverso del error normalizado)
+    pico_correlacion = confianza
+    
+    return {
+        'dx': float(mejor_dx),
+        'dy': float(mejor_dy),
+        'vector': (float(mejor_dx), float(mejor_dy)),
+        'confianza': float(confianza),
+        'pico_correlacion': float(pico_correlacion),
+        'metodo': 'Correlación directa de píxeles (Búsqueda bruta)'
+    }
+
+
 if __name__ == "__main__":
     # Prueba: calcular traslación entre imagen 1 y 2
     resultado = calcular_vector_traslacion_fourier(1, 2)

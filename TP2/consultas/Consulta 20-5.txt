@@ -8,6 +8,7 @@ se usa el mismo indicador pero con coordenadas distintas.
 
 
 4 seguir usando las propiedades de fase y magnitud
-la idea es que con las dos imagenes saque la fase de una y la magnitud de la otra, pero encontrar el factor k (vamos a tener que ir probando)
+la idea es que con las dos imagenes saque la fase de una y la magnitud de la otra, pero encontrar 
+el factor k (vamos a tener que ir probando)
 la idea es terminar viendo una imagen nítida.
 
