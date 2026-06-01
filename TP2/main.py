@@ -1,9 +1,12 @@
 from src.inciso1 import calcular_vector_traslacion_fourier, calcular_vector_traslacion_pixeles
 from src.inciso2 import calcular_angulo_rotacion
 from src.inciso3 import calcular_factor_escala
+from src.inciso4 import (recuperar_imagen_magnitud, recuperar_imagen_fase, 
+                         visualizar_resultados_inciso4_tif, visualizar_resultados_inciso4_jpg)
 from src.crear_imagenes_polar import rotar_y_guardar_imagen
 from src.crear_imagenes_cart import crear_imagen_cartesiana
 from src.crear_imagenes_log_polares import crear_imagen_log_polar
+import matplotlib.pyplot as plt
 
 
 def mostrar_resultado(resultado):
@@ -112,6 +115,77 @@ def menu_inciso3():
     mostrar_resultado_inciso3(resultado)
 
 
+def menu_inciso4():
+    """Menú para el inciso 4 - Coherencia de fase y recuperación de imágenes"""
+    print("\n" + "="*60)
+    print("INCISO 4 - Coherencia de Fase - Recuperación de Imágenes")
+    print("="*60)
+    
+    # PRIMERA ETAPA: Procesar TIF
+    print("\n" + "="*70)
+    print("ETAPA 1: ANÁLISIS CON FORMATO TIF (SIN COMPRESIÓN)")
+    print("="*70)
+    print("\nProcesando imágenes TIF...")
+    print("-" * 60)
+    print("\n1. Recuperando imagen objetivo (magnitud de f6, fase alterada de f7)...")
+    resultado_mag_tif = recuperar_imagen_magnitud(6, 7, tipo_imagen="tif")
+    
+    print("\n2. Recuperando imagen objetivo (fase de f7, magnitud alterada de f6)...")
+    resultado_fase_tif = recuperar_imagen_fase(6, 7, tipo_imagen="tif")
+    
+    # Mostrar resumen de datos TIF
+    print("\n" + "="*70)
+    print("RESULTADOS - FORMATO TIF")
+    print("="*70)
+    print(f"Magnitud:")
+    print(f"  k óptimo: {resultado_mag_tif['k_optimo']:.6f}")
+    print(f"  Nitidez máxima: {resultado_mag_tif['nitidez_maxima']:.4e}")
+    print(f"\nFase:")
+    print(f"  k óptimo: {resultado_fase_tif['k_optimo']:.6f}")
+    print(f"  Nitidez máxima: {resultado_fase_tif['nitidez_maxima']:.4e}")
+    print("="*70)
+    
+    # SEGUNDA ETAPA: Procesar JPG
+    print("\n" + "="*70)
+    print("ETAPA 2: ANÁLISIS CON FORMATO JPG (CON COMPRESIÓN)")
+    print("="*70)
+    print("\nProcesando imágenes JPG...")
+    print("-" * 60)
+    print("\n1. Recuperando imagen objetivo (magnitud de f6, fase alterada de f7)...")
+    resultado_mag_jpg = recuperar_imagen_magnitud(6, 7, tipo_imagen="jpg")
+    
+    print("\n2. Recuperando imagen objetivo (fase de f7, magnitud alterada de f6)...")
+    resultado_fase_jpg = recuperar_imagen_fase(6, 7, tipo_imagen="jpg")
+    
+    # Mostrar resumen de datos JPG
+    print("\n" + "="*70)
+    print("RESULTADOS - FORMATO JPG")
+    print("="*70)
+    print(f"Magnitud:")
+    print(f"  k óptimo: {resultado_mag_jpg['k_optimo']:.6f}")
+    print(f"  Nitidez máxima: {resultado_mag_jpg['nitidez_maxima']:.4e}")
+    print(f"\nFase:")
+    print(f"  k óptimo: {resultado_fase_jpg['k_optimo']:.6f}")
+    print(f"  Nitidez máxima: {resultado_fase_jpg['nitidez_maxima']:.4e}")
+    print("="*70)
+    
+    # TERCERA ETAPA: Generar gráficos
+    print("\n" + "="*70)
+    print("ETAPA 3: GENERACIÓN DE GRÁFICOS")
+    print("="*70)
+    
+    print("\nGenerando gráfico para formato TIF...")
+    fig_tif = visualizar_resultados_inciso4_tif(resultado_mag_tif, resultado_fase_tif)
+    
+    print("Generando gráfico para formato JPG...")
+    fig_jpg = visualizar_resultados_inciso4_jpg(resultado_mag_jpg, resultado_fase_jpg)
+    
+    print("\nMostrando gráficos...")
+    plt.show()
+    
+    print()
+
+
 def menu_principal():
     """Menú principal - Selecciona el inciso a probar"""
     print("\n" + "="*60)
@@ -121,9 +195,10 @@ def menu_principal():
     print("  1. Inciso 1 - Cálculo de vectores de traslación")
     print("  2. Inciso 2 - Registro de rotación")
     print("  3. Inciso 3 - Cálculo de factor de escala")
+    print("  4. Inciso 4 - Coherencia de fase y recuperación de imágenes")
     print()
     
-    opcion = input("Ingresa tu opción (1, 2 o 3): ").strip()
+    opcion = input("Ingresa tu opción (1, 2, 3 o 4): ").strip()
     
     if opcion == "1":
         menu_inciso1()
@@ -131,8 +206,10 @@ def menu_principal():
         menu_inciso2()
     elif opcion == "3":
         menu_inciso3()
+    elif opcion == "4":
+        menu_inciso4()
     else:
-        print("\nOpción inválida. Por favor, ingresa 1, 2 o 3.")
+        print("\nOpción inválida. Por favor, ingresa 1, 2, 3 o 4.")
         menu_principal()
 
 

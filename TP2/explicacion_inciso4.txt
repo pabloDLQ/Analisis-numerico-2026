@@ -1,0 +1,25 @@
+EXPLICACIÓN DEL INCISO 4 - COHERENCIA DE FASE
+===============================================
+
+METODOLOGÍA Y ALGORITMO IMPLEMENTADO:
+
+El presente inciso tiene como objetivo recuperar una imagen objetivo mediante un proceso de búsqueda automática que explota las propiedades de la coherencia de fase en el dominio de Fourier. Se implementó un algoritmo que combina magnitud y fase de dos imágenes diferentes, variando un factor de compresión de fase (k) para encontrar el parámetro que maximiza una métrica de nitidez.
+
+El algoritmo consta de cuatro etapas principales. En primer lugar, se define una métrica de nitidez basada en la magnitud del gradiente espacial, calculada mediante operadores de Sobel. Esta métrica representa la agudeza de los bordes en la imagen y se expresa como la norma de Frobenius de la matriz de gradientes. Imágenes con bordes más definidos presentan gradientes mayores y, por lo tanto, valores de nitidez más elevados.
+
+En segundo lugar, se implementó el proceso de reconstrucción de imágenes mediante combinación de magnitud y fase. Para cada valor de k, se calcula la transformada de Fourier de ambas imágenes, se extrae la magnitud de una y la fase de la otra. A continuación, se aplica el factor de compresión de fase mediante la relación: espectro_reconstruido = magnitud × exp(i · k · fase). Mediante la transformada inversa de Fourier, se obtiene la imagen reconstruida en el dominio espacial, que se normaliza al rango [0, 255] para visualización.
+
+En tercer lugar, se implementó el algoritmo de búsqueda automática del factor k óptimo. El algoritmo prueba 100 valores de k distribuidos uniformemente en el rango [0.01, 2.0], reconstruyendo la imagen para cada valor y calculando su nitidez. El factor k que produce la máxima nitidez se identifica como el parámetro óptimo, representando el factor de compresión que mejor recupera la imagen objetivo.
+
+Finalmente, el algoritmo se ejecutó para dos formatos de imagen distintos: JPG (con compresión DCT con pérdida) y TIF (formato sin compresión), permitiendo un análisis comparativo de cómo la compresión de imágenes afecta el proceso de recuperación.
+
+
+DIFERENCIAS OBSERVADAS ENTRE FORMATOS JPG Y TIF:
+
+Las diferencias más significativas entre los resultados obtenidos con formato JPG y TIF se derivan de las características fundamentales de cada formato de compresión. El formato JPG utiliza compresión DCT (Transformada Coseno Discreta) con pérdida de información, mientras que TIF preserva los datos sin pérdida.
+
+En el caso del formato JPG, la compresión DCT introduce artefactos característicos que afectan de forma asimétrica tanto a la magnitud como a la fase del espectro de Fourier. Los coeficientes de alta frecuencia, que contienen información de bordes finos, se descartan o reducen significativamente. Consecuentemente, el factor k óptimo para la magnitud diferirá del factor k óptimo para la fase, ya que la compresión ha alterado de forma diferenciada ambas componentes del espectro. Además, la nitidez máxima alcanzada con imágenes JPG será menor que la conseguida con TIF, dado que se ha perdido información que no puede recuperarse.
+
+En contraste, el formato TIF preserva toda la información sin compresión, manteniendo exactitud numérica completa tanto en magnitud como en fase. En consecuencia, los valores de k óptimo serán más consistentes y predecibles entre magnitud y fase, y la nitidez máxima será superior. Las curvas de búsqueda serán más suaves y regulares, reflejando una función matemática continua sin perturbaciones causadas por artefactos de compresión.
+
+La asimetría en la compresión JPG se debe a que el algoritmo DCT no es simétrico respecto a las propiedades del espectro. Los componentes de magnitud, que corresponden principalmente a energía en frecuencias medias-bajas, se comprimen menos agresivamente, mientras que los componentes de fase, contenidos en frecuencias más altas, son más severamente afectados. Esta diferencia fundamental entre formatos explica las variaciones en los factores k óptimos y en los valores de nitidez máxima observados entre JPG y TIF.

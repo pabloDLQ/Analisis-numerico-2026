@@ -52,6 +52,40 @@ def cargar_imagen_rgb(numero_imagen):
     return imagen_rgb
 
 
+def cargar_imagen_tif(numero_imagen, nombre_prefijo="imagen"):
+    """
+    Carga una imagen TIF desde la carpeta data/.
+    
+    Args:
+        numero_imagen (int): Número de la imagen a cargar
+        nombre_prefijo (str): Prefijo del archivo TIF (default: 'imagen')
+    
+    Returns:
+        numpy.ndarray: Array con los datos de la imagen cargada
+                      En formato original (puede ser BGR, RGB o escala de grises)
+    
+    Raises:
+        FileNotFoundError: Si la imagen no existe en la carpeta data/
+        RuntimeError: Si no se puede cargar la imagen
+    """
+    
+    # Construir la ruta de la imagen
+    ruta_base = Path(__file__).parent.parent
+    ruta_imagen = ruta_base / "data" / f"{nombre_prefijo}{numero_imagen}.tif"
+    
+    # Verificar que la ruta existe
+    if not ruta_imagen.exists():
+        raise FileNotFoundError(f"La imagen no existe en: {ruta_imagen}")
+    
+    # Cargar la imagen usando OpenCV
+    imagen = cv2.imread(str(ruta_imagen), cv2.IMREAD_UNCHANGED)
+    
+    if imagen is None:
+        raise RuntimeError(f"No se pudo cargar la imagen: {ruta_imagen}")
+    
+    return imagen
+
+
 # Ejemplo de uso
 if __name__ == "__main__":
     # Cargar la imagen 1
