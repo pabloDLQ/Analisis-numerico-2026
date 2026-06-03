@@ -2,7 +2,8 @@ from src.inciso1 import calcular_vector_traslacion_fourier, calcular_vector_tras
 from src.inciso2 import calcular_angulo_rotacion
 from src.inciso3 import calcular_factor_escala
 from src.inciso4 import (recuperar_imagen_magnitud, recuperar_imagen_fase, 
-                         visualizar_resultados_inciso4_tif, visualizar_resultados_inciso4_jpg)
+                         visualizar_resultados_inciso4_tif, visualizar_resultados_inciso4_jpg,
+                         guardar_imagenes_resultantes)
 from src.crear_imagenes_polar import rotar_y_guardar_imagen
 from src.crear_imagenes_cart import crear_imagen_cartesiana
 from src.crear_imagenes_log_polares import crear_imagen_log_polar
@@ -180,8 +181,16 @@ def menu_inciso4():
     print("Generando gráfico para formato JPG...")
     fig_jpg = visualizar_resultados_inciso4_jpg(resultado_mag_jpg, resultado_fase_jpg)
     
-    print("\nMostrando gráficos...")
-    plt.show()
+    # CUARTA ETAPA: Guardar imágenes resultantes (sin mostrar gráficos)
+    print("\n" + "="*70)
+    print("ETAPA 4: GUARDANDO IMÁGENES RESULTANTES")
+    print("="*70)
+    
+    guardar_imagenes_resultantes(resultado_mag_tif, resultado_fase_tif,
+                                 resultado_mag_jpg, resultado_fase_jpg)
+    
+    # Cerrar figuras de matplotlib sin mostrarlas
+    plt.close('all')
     
     print()
 

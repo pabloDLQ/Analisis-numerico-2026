@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 from src.cargar_imagenes_jpg import cargar_imagen, cargar_imagen_tif
 
 
@@ -334,3 +335,98 @@ def visualizar_resultados_inciso4_jpg(resultado_magnitud, resultado_fase):
     
     plt.tight_layout()
     return fig
+
+
+def guardar_solo_imagen_resultante(imagen, nombre_archivo, k_optimo, tipo_formato, tipo_componente):
+    """
+    Guarda solo la imagen resultante (sin gráficos) como JPG.
+    
+    Args:
+        imagen (numpy.ndarray): Imagen a guardar
+        nombre_archivo (str): Nombre del archivo (sin extensión)
+        k_optimo (float): Factor k óptimo encontrado
+        tipo_formato (str): "TIF" o "JPG"
+        tipo_componente (str): "Magnitud" o "Fase"
+    
+    Returns:
+        str: Ruta del archivo guardado
+    """
+    
+    ruta_base = Path(__file__).parent.parent
+    carpeta_imagenes = ruta_base / "imagenes creadas"
+    carpeta_imagenes.mkdir(exist_ok=True)
+    
+    ruta_archivo = carpeta_imagenes / f"{nombre_archivo}.jpg"
+    cv2.imwrite(str(ruta_archivo), imagen)
+    
+    return str(ruta_archivo), k_optimo
+
+
+def guardar_imagenes_resultantes(resultado_mag_tif, resultado_fase_tif, 
+                                  resultado_mag_jpg, resultado_fase_jpg):
+    """
+    Guarda las imágenes resultantes del inciso 4 en la carpeta 'imagenes creadas'.
+    Solo guarda las imágenes reconstruidas sin gráficos.
+    
+    Args:
+        resultado_mag_tif: Dict con imagen reconstruida (magnitud TIF)
+        resultado_fase_tif: Dict con imagen reconstruida (fase TIF)
+        resultado_mag_jpg: Dict con imagen reconstruida (magnitud JPG)
+        resultado_fase_jpg: Dict con imagen reconstruida (fase JPG)
+    """
+    
+    ruta_base = Path(__file__).parent.parent
+    carpeta_imagenes = ruta_base / "imagenes creadas"
+    carpeta_imagenes.mkdir(exist_ok=True)
+    
+    # Guardar imágenes resultantes como JPG
+    archivos_guardados = []
+    
+    # TIF - Magnitud
+    ruta1, k1 = guardar_solo_imagen_resultante(
+        resultado_mag_tif['imagen_optima'],
+        "inciso4_TIF_Magnitud",
+        resultado_mag_tif['k_optimo'],
+        "TIF",
+        "Magnitud"
+    )
+    archivos_guardados.append(("TIF Magnitud", ruta1, k1))
+    
+    # TIF - Fase
+    ruta2, k2 = guardar_solo_imagen_resultante(
+        resultado_fase_tif['imagen_optima'],
+        "inciso4_TIF_Fase",
+        resultado_fase_tif['k_optimo'],
+        "TIF",
+        "Fase"
+    )
+    archivos_guardados.append(("TIF Fase", ruta2, k2))
+    
+    # JPG - Magnitud
+    ruta3, k3 = guardar_solo_imagen_resultante(
+        resultado_mag_jpg['imagen_optima'],
+        "inciso4_JPG_Magnitud",
+        resultado_mag_jpg['k_optimo'],
+        "JPG",
+        "Magnitud"
+    )
+    archivos_guardados.append(("JPG Magnitud", ruta3, k3))
+    
+    # JPG - Fase
+    ruta4, k4 = guardar_solo_imagen_resultante(
+        resultado_fase_jpg['imagen_optima'],
+        "inciso4_JPG_Fase",
+        resultado_fase_jpg['k_optimo'],
+        "JPG",
+        "Fase"
+    )
+    archivos_guardados.append(("JPG Fase", ruta4, k4))
+    
+    print("\n" + "="*70)
+    print("IMÁGENES GUARDADAS EXITOSAMENTE")
+    print("="*70)
+    print(f"Ubicación: {carpeta_imagenes}")
+    print(f"\nArchivos guardados (SOLO IMÁGENES, SIN GRÁFICOS):")
+    for formato_comp, ruta, k in archivos_guardados:
+        print(f"  • inciso4_{formato_comp}.jpg (k={k:.6f})")
+    print("="*70)
