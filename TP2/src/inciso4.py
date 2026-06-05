@@ -38,31 +38,31 @@ def calcular_nitidez(imagen):
     return float(nitidez)
 
 
-def reconstruir_con_magnitud_y_fase_comprimida(num_magnitud, num_fase, k, 
-                                                 es_tif=False, tipo_imagen="jpg"):
+def reconstruir_imagen_objetivo(num_magnitud, num_fase, k, es_tif=False):
     """
-    Reconstruye una imagen combinando la magnitud de una imagen con la fase comprimida de otra.
+    Reconstruye la imagen objetivo combinando:
+    - Magnitud de la imagen num_magnitud (f6)
+    - Fase comprimida de la imagen num_fase (f7)
     
     Proceso:
     1. Calcula FFT de ambas imágenes
-    2. Extrae magnitud de la primera imagen y fase de la segunda
+    2. Extrae magnitud de f6 y fase de f7
     3. Comprime la fase por factor k (multiplica por k)
     4. Reconstruye usando mag * exp(i * k * fase)
     5. Realiza IFFT para obtener la imagen reconstruida
     
     Args:
-        num_magnitud (int): Número de imagen para magnitud
-        num_fase (int): Número de imagen para fase
-        k (float): Factor de compresión de fase (típicamente entre 0 y 1)
+        num_magnitud (int): Número de imagen para magnitud (típicamente 6)
+        num_fase (int): Número de imagen para fase alterada (típicamente 7)
+        k (float): Factor de compresión de fase
         es_tif (bool): Si True, carga TIF; si False, carga JPG
-        tipo_imagen (str): Tipo de imagen ("jpg" o "tif")
     
     Returns:
-        numpy.ndarray: Imagen reconstruida en escala de grises
+        numpy.ndarray: Imagen reconstruida en escala de grises [0, 255]
     """
     
     # Cargar imágenes
-    if es_tif or tipo_imagen == "tif":
+    if es_tif:
         img_magnitud = cargar_imagen_tif(num_magnitud)
         img_fase = cargar_imagen_tif(num_fase)
     else:
@@ -91,7 +91,7 @@ def reconstruir_con_magnitud_y_fase_comprimida(num_magnitud, num_fase, k,
     # Aplicar factor de compresión a la fase
     fase_comprimida = k * fase
     
-    # Reconstruir espectro: magnitud * exp(i * fase_comprimida)
+    # Reconstruir espectro: magnitud * exp(i * k * fase)
     espectro_reconstruido = magnitud * np.exp(1j * fase_comprimida)
     
     # Transformada inversa
@@ -105,26 +105,23 @@ def reconstruir_con_magnitud_y_fase_comprimida(num_magnitud, num_fase, k,
     return imagen_reconstruida.astype(np.uint8)
 
 
-def buscar_factor_k_optimo(num_magnitud, num_fase, rango_k=(0.1, 2.0), 
-                           pasos=50, es_tif=False, tipo_imagen="jpg",
-                           verbose=True):
+def buscar_factor_k_optimo(num_magnitud, num_fase, rango_k=(0.1, 5.0), 
+                           pasos=200, es_tif=False, verbose=True):
     """
-    Busca el factor k óptimo que maximiza la nitidez de la imagen reconstruida.
+    Busca el factor k óptimo que maximiza la nitidez de la imagen objetivo.
     
-    Algoritmo:
-    1. Define rango de valores k a probar
-    2. Para cada k:
-       - Reconstruye imagen con magnitud+fase comprimida
-       - Calcula métrica de nitidez (magnitud del gradiente)
-    3. Retorna k que maximiza la nitidez
+    Utiliza magnitud de f6 y fase alterada de f7.
+    
+    Algoritmo de dos fases:
+    1. Búsqueda gruesa: Prueba valores en el rango especificado
+    2. Búsqueda fina: Refina alrededor del máximo encontrado
     
     Args:
-        num_magnitud (int): Número de imagen para magnitud
-        num_fase (int): Número de imagen para fase
-        rango_k (tuple): (k_min, k_max) para búsqueda
-        pasos (int): Número de valores k a probar
+        num_magnitud (int): Número de imagen para magnitud (típicamente 6)
+        num_fase (int): Número de imagen para fase (típicamente 7)
+        rango_k (tuple): (k_min, k_max) para búsqueda. Por defecto (0.1, 5.0)
+        pasos (int): Número de valores k a probar. Por defecto 200
         es_tif (bool): Si True, carga TIF; si False, carga JPG
-        tipo_imagen (str): Tipo de imagen ("jpg" o "tif")
         verbose (bool): Si True, imprime progreso
     
     Returns:
@@ -137,38 +134,75 @@ def buscar_factor_k_optimo(num_magnitud, num_fase, rango_k=(0.1, 2.0),
     """
     
     k_min, k_max = rango_k
-    valores_k = np.linspace(k_min, k_max, pasos)
-    nitideces = []
+    tipo_formato = "TIF" if es_tif else "JPG"
     
     if verbose:
         print(f"\n{'='*70}")
-        print(f"Búsqueda de factor k óptimo")
+        print(f"BÚSQUEDA DE FACTOR k ÓPTIMO - Formato {tipo_formato.upper()}")
         print(f"{'='*70}")
+        print(f"Magnitud: Imagen f{num_magnitud}")
+        print(f"Fase (alterada): Imagen f{num_fase}")
         print(f"Rango de k: [{k_min:.3f}, {k_max:.3f}]")
         print(f"Pasos: {pasos}")
-        print(f"Tipo de imagen: {tipo_imagen.upper()}")
         print(f"{'='*70}")
     
-    # Probar cada valor de k
+    # FASE 1: Búsqueda gruesa en el rango especificado
+    if verbose:
+        print(f"\nFase 1: Búsqueda gruesa ({pasos} puntos)...")
+    
+    valores_k = np.linspace(k_min, k_max, pasos)
+    nitideces = []
+    
     for i, k in enumerate(valores_k):
-        imagen_recon = reconstruir_con_magnitud_y_fase_comprimida(
-            num_magnitud, num_fase, k, es_tif=es_tif, tipo_imagen=tipo_imagen
+        imagen_recon = reconstruir_imagen_objetivo(
+            num_magnitud, num_fase, k, es_tif=es_tif
         )
         nitidez = calcular_nitidez(imagen_recon)
         nitideces.append(nitidez)
         
         if verbose and (i + 1) % (pasos // 5) == 0:
-            print(f"  Progreso: {i+1}/{pasos} - k={k:.4f}, Nitidez={nitidez:.2e}")
+            print(f"  Progreso: {i+1}/{pasos} - k={k:.4f}, Nitidez={nitidez:.4e}")
     
-    # Encontrar k óptimo
-    idx_optimo = np.argmax(nitideces)
-    k_optimo = valores_k[idx_optimo]
-    nitidez_maxima = nitideces[idx_optimo]
+    # Encontrar el máximo aproximado
+    idx_aprox = np.argmax(nitideces)
+    k_aprox = valores_k[idx_aprox]
+    
+    # FASE 2: Búsqueda fina alrededor del máximo
+    if verbose:
+        print(f"\nFase 2: Búsqueda fina alrededor de k={k_aprox:.4f}...")
+    
+    # Definir rango fino: ±20% del rango original, centrado en k_aprox
+    rango_fino = (k_max - k_min) * 0.15  # 15% del rango original
+    k_min_fino = max(k_min, k_aprox - rango_fino)
+    k_max_fino = min(k_max, k_aprox + rango_fino)
+    
+    pasos_fino = 100
+    valores_k_fino = np.linspace(k_min_fino, k_max_fino, pasos_fino)
+    nitideces_finas = []
+    
+    for i, k in enumerate(valores_k_fino):
+        imagen_recon = reconstruir_imagen_objetivo(
+            num_magnitud, num_fase, k, es_tif=es_tif
+        )
+        nitidez = calcular_nitidez(imagen_recon)
+        nitideces_finas.append(nitidez)
+        
+        if verbose and (i + 1) % (pasos_fino // 3) == 0:
+            print(f"  Progreso: {i+1}/{pasos_fino} - k={k:.4f}, Nitidez={nitidez:.4e}")
+    
+    # Encontrar k óptimo en búsqueda fina
+    idx_optimo_fino = np.argmax(nitideces_finas)
+    k_optimo = valores_k_fino[idx_optimo_fino]
+    nitidez_maxima = nitideces_finas[idx_optimo_fino]
     
     # Reconstruir imagen con k óptimo
-    imagen_optima = reconstruir_con_magnitud_y_fase_comprimida(
-        num_magnitud, num_fase, k_optimo, es_tif=es_tif, tipo_imagen=tipo_imagen
+    imagen_optima = reconstruir_imagen_objetivo(
+        num_magnitud, num_fase, k_optimo, es_tif=es_tif
     )
+    
+    # Combinar resultados de ambas fases para retorno
+    valores_k_total = np.concatenate([valores_k, valores_k_fino])
+    nitideces_total = nitideces + nitideces_finas
     
     if verbose:
         print(f"\n{'*'*70}")
@@ -176,257 +210,111 @@ def buscar_factor_k_optimo(num_magnitud, num_fase, rango_k=(0.1, 2.0),
         print(f"{'*'*70}")
         print(f"  k_óptimo:        {k_optimo:.6f}")
         print(f"  Nitidez máxima:  {nitidez_maxima:.4e}")
+        print(f"  Rango de búsqueda fina: [{k_min_fino:.6f}, {k_max_fino:.6f}]")
         print(f"{'*'*70}\n")
     
     return {
         'k_optimo': float(k_optimo),
         'nitidez_maxima': float(nitidez_maxima),
         'imagen_optima': imagen_optima,
-        'valores_k': valores_k.tolist(),
-        'nitideces': nitideces
+        'valores_k': valores_k_fino.tolist(),  # Retornar solo búsqueda fina para gráfico
+        'nitideces': nitideces_finas,
+        'tipo_formato': tipo_formato
     }
 
 
-def recuperar_imagen_magnitud(num_magnitud, num_fase, tipo_imagen="jpg"):
+def visualizar_resultados_inciso4(resultado_tif, resultado_jpg):
     """
-    Recupera la imagen objetivo usando magnitud de f6 y fase de f7.
+    Visualiza resultados de la recuperación de imagen para ambos formatos.
     
-    Busca el factor k óptimo para recuperar la imagen con máxima nitidez.
+    Muestra:
+    - Lado izquierdo: Resultado TIF (imagen + gráfico de búsqueda)
+    - Lado derecho: Resultado JPG (imagen + gráfico de búsqueda)
     
     Args:
-        num_magnitud (int): Número de imagen con magnitud objetivo
-        num_fase (int): Número de imagen con fase alterada
-        tipo_imagen (str): Tipo de imagen ("jpg" o "tif")
-    
-    Returns:
-        dict: Resultado de la búsqueda con k_optimo, imagen_optima, etc.
+        resultado_tif: Dict con resultado para formato TIF
+        resultado_jpg: Dict con resultado para formato JPG
     """
     
-    es_tif = (tipo_imagen.lower() == "tif")
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig.suptitle('Inciso 4: Recuperación de Imagen Objetivo con Coherencia de Fase', 
+                 fontsize=14, fontweight='bold')
     
-    resultado = buscar_factor_k_optimo(
-        num_magnitud, num_fase,
-        rango_k=(0.01, 2.0),
-        pasos=100,
-        es_tif=es_tif,
-        tipo_imagen=tipo_imagen,
-        verbose=True
-    )
-    
-    return resultado
-
-
-def recuperar_imagen_fase(num_magnitud, num_fase, tipo_imagen="jpg"):
-    """
-    Recupera la imagen objetivo usando fase de f7 y magnitud de f6.
-    
-    Busca el factor k óptimo para recuperar la imagen con máxima nitidez.
-    
-    Args:
-        num_magnitud (int): Número de imagen con magnitud alterada
-        num_fase (int): Número de imagen con fase objetivo
-        tipo_imagen (str): Tipo de imagen ("jpg" o "tif")
-    
-    Returns:
-        dict: Resultado de la búsqueda con k_optimo, imagen_optima, etc.
-    """
-    
-    es_tif = (tipo_imagen.lower() == "tif")
-    
-    resultado = buscar_factor_k_optimo(
-        num_magnitud, num_fase,
-        rango_k=(0.01, 2.0),
-        pasos=100,
-        es_tif=es_tif,
-        tipo_imagen=tipo_imagen,
-        verbose=True
-    )
-    
-    return resultado
-
-
-def visualizar_resultados_inciso4_tif(resultado_magnitud, resultado_fase):
-    """
-    Visualiza resultados para formato TIF.
-    
-    Args:
-        resultado_magnitud: Dict con resultado para magnitud (TIF)
-        resultado_fase: Dict con resultado para fase (TIF)
-    """
-    
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-    fig.suptitle('Inciso 4: Coherencia de Fase - Formato TIF', fontsize=14, fontweight='bold')
-    
-    # Magnitud: Imagen
-    axes[0, 0].imshow(resultado_magnitud['imagen_optima'], cmap='gray')
-    axes[0, 0].set_title(f'Imagen Reconstruida (Magnitud)\nk óptimo = {resultado_magnitud["k_optimo"]:.4f}')
+    # ========== COLUMNA IZQUIERDA: TIF ==========
+    # Imagen recuperada TIF
+    axes[0, 0].imshow(resultado_tif['imagen_optima'], cmap='gray')
+    axes[0, 0].set_title(f"Imagen Recuperada (TIF)\nk óptimo = {resultado_tif['k_optimo']:.6f}", 
+                         fontsize=11, fontweight='bold')
     axes[0, 0].axis('off')
     
-    # Magnitud: Gráfico
-    axes[1, 0].plot(resultado_magnitud['valores_k'], resultado_magnitud['nitideces'], 'b-', linewidth=2)
-    axes[1, 0].axvline(resultado_magnitud['k_optimo'], color='r', linestyle='--', linewidth=2, label=f'k óptimo = {resultado_magnitud["k_optimo"]:.4f}')
-    axes[1, 0].scatter([resultado_magnitud['k_optimo']], [resultado_magnitud['nitidez_maxima']], color='r', s=100, zorder=5)
-    axes[1, 0].set_xlabel('Factor k', fontsize=11)
-    axes[1, 0].set_ylabel('Nitidez', fontsize=11)
-    axes[1, 0].set_title('Búsqueda del Factor k Óptimo (Magnitud)', fontsize=11)
-    axes[1, 0].legend(fontsize=10)
+    # Gráfico de búsqueda TIF
+    axes[1, 0].plot(resultado_tif['valores_k'], resultado_tif['nitideces'], 
+                   'b-', linewidth=2.5, label='Nitidez vs k')
+    axes[1, 0].axvline(resultado_tif['k_optimo'], color='r', linestyle='--', 
+                      linewidth=2.5, label=f'k óptimo = {resultado_tif["k_optimo"]:.4f}')
+    axes[1, 0].scatter([resultado_tif['k_optimo']], [resultado_tif['nitidez_maxima']], 
+                      color='r', s=150, zorder=5, marker='o')
+    axes[1, 0].set_xlabel('Factor de compresión k', fontsize=10)
+    axes[1, 0].set_ylabel('Nitidez (Frobenius norm)', fontsize=10)
+    axes[1, 0].set_title('Búsqueda del Factor k Óptimo (TIF)', fontsize=11)
+    axes[1, 0].legend(fontsize=10, loc='best')
     axes[1, 0].grid(True, alpha=0.3)
     
-    # Fase: Imagen
-    axes[0, 1].imshow(resultado_fase['imagen_optima'], cmap='gray')
-    axes[0, 1].set_title(f'Imagen Reconstruida (Fase)\nk óptimo = {resultado_fase["k_optimo"]:.4f}')
+    # ========== COLUMNA DERECHA: JPG ==========
+    # Imagen recuperada JPG
+    axes[0, 1].imshow(resultado_jpg['imagen_optima'], cmap='gray')
+    axes[0, 1].set_title(f"Imagen Recuperada (JPG)\nk óptimo = {resultado_jpg['k_optimo']:.6f}", 
+                         fontsize=11, fontweight='bold')
     axes[0, 1].axis('off')
     
-    # Fase: Gráfico
-    axes[1, 1].plot(resultado_fase['valores_k'], resultado_fase['nitideces'], 'g-', linewidth=2)
-    axes[1, 1].axvline(resultado_fase['k_optimo'], color='r', linestyle='--', linewidth=2, label=f'k óptimo = {resultado_fase["k_optimo"]:.4f}')
-    axes[1, 1].scatter([resultado_fase['k_optimo']], [resultado_fase['nitidez_maxima']], color='r', s=100, zorder=5)
-    axes[1, 1].set_xlabel('Factor k', fontsize=11)
-    axes[1, 1].set_ylabel('Nitidez', fontsize=11)
-    axes[1, 1].set_title('Búsqueda del Factor k Óptimo (Fase)', fontsize=11)
-    axes[1, 1].legend(fontsize=10)
+    # Gráfico de búsqueda JPG
+    axes[1, 1].plot(resultado_jpg['valores_k'], resultado_jpg['nitideces'], 
+                   'g-', linewidth=2.5, label='Nitidez vs k')
+    axes[1, 1].axvline(resultado_jpg['k_optimo'], color='r', linestyle='--', 
+                      linewidth=2.5, label=f'k óptimo = {resultado_jpg["k_optimo"]:.4f}')
+    axes[1, 1].scatter([resultado_jpg['k_optimo']], [resultado_jpg['nitidez_maxima']], 
+                      color='r', s=150, zorder=5, marker='o')
+    axes[1, 1].set_xlabel('Factor de compresión k', fontsize=10)
+    axes[1, 1].set_ylabel('Nitidez (Frobenius norm)', fontsize=10)
+    axes[1, 1].set_title('Búsqueda del Factor k Óptimo (JPG)', fontsize=11)
+    axes[1, 1].legend(fontsize=10, loc='best')
     axes[1, 1].grid(True, alpha=0.3)
     
     plt.tight_layout()
     return fig
 
 
-def visualizar_resultados_inciso4_jpg(resultado_magnitud, resultado_fase):
+def guardar_imagenes_resultantes(resultado_tif, resultado_jpg):
     """
-    Visualiza resultados para formato JPG.
+    Guarda las imágenes recuperadas en la carpeta 'imagenes creadas'.
     
     Args:
-        resultado_magnitud: Dict con resultado para magnitud (JPG)
-        resultado_fase: Dict con resultado para fase (JPG)
-    """
-    
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-    fig.suptitle('Inciso 4: Coherencia de Fase - Formato JPG', fontsize=14, fontweight='bold')
-    
-    # Magnitud: Imagen
-    axes[0, 0].imshow(resultado_magnitud['imagen_optima'], cmap='gray')
-    axes[0, 0].set_title(f'Imagen Reconstruida (Magnitud)\nk óptimo = {resultado_magnitud["k_optimo"]:.4f}')
-    axes[0, 0].axis('off')
-    
-    # Magnitud: Gráfico
-    axes[1, 0].plot(resultado_magnitud['valores_k'], resultado_magnitud['nitideces'], 'b-', linewidth=2)
-    axes[1, 0].axvline(resultado_magnitud['k_optimo'], color='r', linestyle='--', linewidth=2, label=f'k óptimo = {resultado_magnitud["k_optimo"]:.4f}')
-    axes[1, 0].scatter([resultado_magnitud['k_optimo']], [resultado_magnitud['nitidez_maxima']], color='r', s=100, zorder=5)
-    axes[1, 0].set_xlabel('Factor k', fontsize=11)
-    axes[1, 0].set_ylabel('Nitidez', fontsize=11)
-    axes[1, 0].set_title('Búsqueda del Factor k Óptimo (Magnitud)', fontsize=11)
-    axes[1, 0].legend(fontsize=10)
-    axes[1, 0].grid(True, alpha=0.3)
-    
-    # Fase: Imagen
-    axes[0, 1].imshow(resultado_fase['imagen_optima'], cmap='gray')
-    axes[0, 1].set_title(f'Imagen Reconstruida (Fase)\nk óptimo = {resultado_fase["k_optimo"]:.4f}')
-    axes[0, 1].axis('off')
-    
-    # Fase: Gráfico
-    axes[1, 1].plot(resultado_fase['valores_k'], resultado_fase['nitideces'], 'g-', linewidth=2)
-    axes[1, 1].axvline(resultado_fase['k_optimo'], color='r', linestyle='--', linewidth=2, label=f'k óptimo = {resultado_fase["k_optimo"]:.4f}')
-    axes[1, 1].scatter([resultado_fase['k_optimo']], [resultado_fase['nitidez_maxima']], color='r', s=100, zorder=5)
-    axes[1, 1].set_xlabel('Factor k', fontsize=11)
-    axes[1, 1].set_ylabel('Nitidez', fontsize=11)
-    axes[1, 1].set_title('Búsqueda del Factor k Óptimo (Fase)', fontsize=11)
-    axes[1, 1].legend(fontsize=10)
-    axes[1, 1].grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    return fig
-
-
-def guardar_solo_imagen_resultante(imagen, nombre_archivo, k_optimo, tipo_formato, tipo_componente):
-    """
-    Guarda solo la imagen resultante (sin gráficos) como JPG.
-    
-    Args:
-        imagen (numpy.ndarray): Imagen a guardar
-        nombre_archivo (str): Nombre del archivo (sin extensión)
-        k_optimo (float): Factor k óptimo encontrado
-        tipo_formato (str): "TIF" o "JPG"
-        tipo_componente (str): "Magnitud" o "Fase"
-    
-    Returns:
-        str: Ruta del archivo guardado
+        resultado_tif: Dict con imagen reconstruida (TIF)
+        resultado_jpg: Dict con imagen reconstruida (JPG)
     """
     
     ruta_base = Path(__file__).parent.parent
     carpeta_imagenes = ruta_base / "imagenes creadas"
     carpeta_imagenes.mkdir(exist_ok=True)
     
-    ruta_archivo = carpeta_imagenes / f"{nombre_archivo}.jpg"
-    cv2.imwrite(str(ruta_archivo), imagen)
+    # Guardar imagen TIF
+    ruta_tif = carpeta_imagenes / "inciso4_imagen_objetivo_TIF.jpg"
+    cv2.imwrite(str(ruta_tif), resultado_tif['imagen_optima'])
     
-    return str(ruta_archivo), k_optimo
-
-
-def guardar_imagenes_resultantes(resultado_mag_tif, resultado_fase_tif, 
-                                  resultado_mag_jpg, resultado_fase_jpg):
-    """
-    Guarda las imágenes resultantes del inciso 4 en la carpeta 'imagenes creadas'.
-    Solo guarda las imágenes reconstruidas sin gráficos.
-    
-    Args:
-        resultado_mag_tif: Dict con imagen reconstruida (magnitud TIF)
-        resultado_fase_tif: Dict con imagen reconstruida (fase TIF)
-        resultado_mag_jpg: Dict con imagen reconstruida (magnitud JPG)
-        resultado_fase_jpg: Dict con imagen reconstruida (fase JPG)
-    """
-    
-    ruta_base = Path(__file__).parent.parent
-    carpeta_imagenes = ruta_base / "imagenes creadas"
-    carpeta_imagenes.mkdir(exist_ok=True)
-    
-    # Guardar imágenes resultantes como JPG
-    archivos_guardados = []
-    
-    # TIF - Magnitud
-    ruta1, k1 = guardar_solo_imagen_resultante(
-        resultado_mag_tif['imagen_optima'],
-        "inciso4_TIF_Magnitud",
-        resultado_mag_tif['k_optimo'],
-        "TIF",
-        "Magnitud"
-    )
-    archivos_guardados.append(("TIF Magnitud", ruta1, k1))
-    
-    # TIF - Fase
-    ruta2, k2 = guardar_solo_imagen_resultante(
-        resultado_fase_tif['imagen_optima'],
-        "inciso4_TIF_Fase",
-        resultado_fase_tif['k_optimo'],
-        "TIF",
-        "Fase"
-    )
-    archivos_guardados.append(("TIF Fase", ruta2, k2))
-    
-    # JPG - Magnitud
-    ruta3, k3 = guardar_solo_imagen_resultante(
-        resultado_mag_jpg['imagen_optima'],
-        "inciso4_JPG_Magnitud",
-        resultado_mag_jpg['k_optimo'],
-        "JPG",
-        "Magnitud"
-    )
-    archivos_guardados.append(("JPG Magnitud", ruta3, k3))
-    
-    # JPG - Fase
-    ruta4, k4 = guardar_solo_imagen_resultante(
-        resultado_fase_jpg['imagen_optima'],
-        "inciso4_JPG_Fase",
-        resultado_fase_jpg['k_optimo'],
-        "JPG",
-        "Fase"
-    )
-    archivos_guardados.append(("JPG Fase", ruta4, k4))
+    # Guardar imagen JPG
+    ruta_jpg = carpeta_imagenes / "inciso4_imagen_objetivo_JPG.jpg"
+    cv2.imwrite(str(ruta_jpg), resultado_jpg['imagen_optima'])
     
     print("\n" + "="*70)
-    print("IMÁGENES GUARDADAS EXITOSAMENTE")
+    print("IMÁGENES RECUPERADAS GUARDADAS EXITOSAMENTE")
     print("="*70)
-    print(f"Ubicación: {carpeta_imagenes}")
-    print(f"\nArchivos guardados (SOLO IMÁGENES, SIN GRÁFICOS):")
-    for formato_comp, ruta, k in archivos_guardados:
-        print(f"  • inciso4_{formato_comp}.jpg (k={k:.6f})")
+    print(f"Ubicación: {carpeta_imagenes}\n")
+    print(f"Imagen objetivo (TIF):")
+    print(f"  • Archivo: inciso4_imagen_objetivo_TIF.jpg")
+    print(f"  • k óptimo: {resultado_tif['k_optimo']:.6f}")
+    print(f"  • Nitidez máxima: {resultado_tif['nitidez_maxima']:.4e}\n")
+    print(f"Imagen objetivo (JPG):")
+    print(f"  • Archivo: inciso4_imagen_objetivo_JPG.jpg")
+    print(f"  • k óptimo: {resultado_jpg['k_optimo']:.6f}")
+    print(f"  • Nitidez máxima: {resultado_jpg['nitidez_maxima']:.4e}")
     print("="*70)
