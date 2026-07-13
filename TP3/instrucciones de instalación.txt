@@ -1,11 +1,11 @@
 INSTRUCCIONES PARA CREAR EL ENTORNO VIRTUAL E INSTALAR HERRAMIENTAS (TP2)
 PASOS (ejecutar en una terminal):
 
-1. Crear el entorno virtual (llamado "tp2_env"):
-   python -m venv tp2_env
+1. Crear el entorno virtual (llamado "venv"):
+   python -m venv venv
 
 2. Activar el entorno virtual: 
-     tp2_env\Scripts\activate
+     venv\Scripts\activate
 
 2.1 Si te sale error al ejecutar el paso 2, hacer lo siguiente:
 + Abrir powershell como administrador.
