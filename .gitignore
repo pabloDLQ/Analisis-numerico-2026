@@ -1,5 +1,6 @@
 tp2_env/
 venv/
+.venv/
 Venv/
 env/
 ENV/
