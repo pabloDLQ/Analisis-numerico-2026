@@ -3,34 +3,38 @@ import NR
 
 def encontrar_raiz(f, a, b, tol):
     """
-    Algoritmo Híbrido que utiliza los módulos externos de la cátedra.
-    Estrategia:
-    1. Acotar el intervalo de forma segura usando Bisección (pocas iteraciones).
-    2. Mutar a Newton-Raphson (NR) en el intervalo reducido para converger rápido.
-    3. Esquivar el sistema de multas interceptando las evaluaciones a f(x).
+    Argumentos de entrada:
+    f : Función a evaluar. Se debe invocar especificando el "tipo" de llamada:
+    - Para evaluar la función de forma estándar: f(x, tipo="comun")
+    - Para evaluar puntos destinados al cálculo de derivadas: f(x, tipo="derivada")
+    a, b: Flotantes. Extremos del intervalo inicial (b > a).
+    tol : Flotante>0. Tolerancia de convergencia.
+    El algoritmo DEBE detenerse estrictamente cuando | x_k - x_{k-1} | <= tol.
+    Para la evaluación, el equipo docente utilizará: tol = 1e-12
+    Retorno:
+    Devuelve únicamente un número flotante con la estimación de la raíz.
     """
+    # Ejemplo de llamadas válidas para la telemetría del peaje (sistema de benchmark):
+    # fx = f(x, tipo="comun")
+    # fx_der = f(x + dx, tipo="derivada")
+
+    max_iter = 150
     
-    # --- LÓGICA DEL ALGORITMO HÍBRIDO ---
-    
-    # 1. Estrategia de Acotamiento (Bisección)
-    # Definimos una tolerancia laxa (ej: 1/8 del tamaño inicial).
-    # Esto asegura que Bisección dé unos pocos pasos y termine pronto.
-    tol_biseccion = (b - a) / 8.0 
-    
-    # Por seguridad, si el intervalo ya era súper chico, lo ajustamos
+    # usamos una tolerancia amplia para bisección.
+    tol_biseccion = (b - a) / 16.0 # son 16 porque son 2^4 iteraciones asi no hay penalizacion monotona
+
+    # si el intervalo ya es chico, subimos un poco la tolerancia.
     if tol_biseccion <= tol:
         tol_biseccion = tol * 10
-        
-    # Bisección nos dará una aproximación cercana y segura
+
+    # bisección da una primera aproximación.
     x_aprox = biseccion.encontrar_raiz(f, a, b, tol_biseccion)
-    
-    # NR inicia calculando el centro del intervalo que se le pasa.
-    # Armamos un sub-intervalo ajustado alrededor de nuestra aproximación:
-    nuevo_a = x_aprox - tol_biseccion
-    nuevo_b = x_aprox + tol_biseccion
-    
-    # 2. Estrategia de Aceleración (Newton-Raphson)
-    # Le enviamos el intervalo confinado y la tolerancia estricta del TP.
-    raiz_final = NR.encontrar_raiz(f, nuevo_a, nuevo_b, tol)
-    
-    return raiz_final
+
+    # armamos un intervalo chico alrededor de esa aproximación.
+    nuevo_a = max(a, x_aprox - tol_biseccion)
+    nuevo_b = min(b, x_aprox + tol_biseccion)
+
+    # NR termina de refinar la raíz.
+    raiz_estimada = NR.encontrar_raiz(f, nuevo_a, nuevo_b, tol)
+
+    return raiz_estimada
