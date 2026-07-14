@@ -11,18 +11,12 @@ def encontrar_raiz(f, a, b, tol):
     """
     
     # --- LÓGICA DEL ALGORITMO HÍBRIDO ---
-
-    # Si la raíz es tangencial o de multiplicidad par, bisección puede no ver
-    # cambio de signo. En ese caso probamos el punto medio antes de seguir.
-    punto_medio = (a + b) / 2.0
-    if abs(f(punto_medio)) <= tol:
-        return punto_medio
     
     # 1. Estrategia de Acotamiento (Bisección)
-    # Definimos una tolerancia laxa, pero suficientemente pequeña para que
-    # la aproximación no quede demasiado lejos en raíces cerca de una cota.
-    tol_biseccion = (b - a) / 1024.0 
-
+    # Definimos una tolerancia laxa (ej: 1/8 del tamaño inicial).
+    # Esto asegura que Bisección dé unos pocos pasos y termine pronto.
+    tol_biseccion = (b - a) / 8.0 
+    
     # Por seguridad, si el intervalo ya era súper chico, lo ajustamos
     if tol_biseccion <= tol:
         tol_biseccion = tol * 10
@@ -31,11 +25,9 @@ def encontrar_raiz(f, a, b, tol):
     x_aprox = biseccion.encontrar_raiz(f, a, b, tol_biseccion)
     
     # NR inicia calculando el centro del intervalo que se le pasa.
-    # Armamos un sub-intervalo ajustado alrededor de nuestra aproximación,
-    # pero sin salir del intervalo original.
-    delta_nr = tol_biseccion / 2.0
-    nuevo_a = max(a, x_aprox - delta_nr)
-    nuevo_b = min(b, x_aprox + delta_nr)
+    # Armamos un sub-intervalo ajustado alrededor de nuestra aproximación:
+    nuevo_a = x_aprox - tol_biseccion
+    nuevo_b = x_aprox + tol_biseccion
     
     # 2. Estrategia de Aceleración (Newton-Raphson)
     # Le enviamos el intervalo confinado y la tolerancia estricta del TP.
