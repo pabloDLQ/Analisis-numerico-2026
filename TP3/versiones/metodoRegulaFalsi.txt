@@ -1,46 +1,37 @@
-Método Regula Falsi implementado en metodo.py
-
-Este archivo describe el comportamiento del método de búsqueda de raíces que se usa actualmente en metodo.py.
+Método Regula Falsi implementado en metodoRegulaFalsi.py
 
 1. Idea general
-El método parte de dos extremos a y b. Primero evalúa f(a) y f(b) con tipo="comun".
-Si alguno de los extremos ya es raíz exacta, el método devuelve ese valor inmediatamente.
+El método parte de dos extremos a y b y evalúa f(a) y f(b) con tipo="comun".
+Si alguno de los extremos ya es raíz exacta, se devuelve ese valor inmediatamente.
 
-2. Caso principal: falsa posición
-Si f(a) y f(b) tienen signos opuestos, el método aplica Regula Falsi:
-- calcula la recta que une los puntos (a, f(a)) y (b, f(b))
-- obtiene el cruce de esa recta con el eje x
-- usa ese punto c como nueva aproximación de la raíz
+2. Requisito de uso
+Este módulo se usa solo cuando f(a) y f(b) tienen signos opuestos.
+Si no hay cambio de signo, el código lanza una excepción ValueError.
+La verificación de ese requisito queda para el algoritmo híbrido que lo llame.
 
-La fórmula usada es:
+3. Paso de Regula Falsi
+Con cambio de signo, el método calcula el cruce con el eje x de la recta que une
+los puntos (a, f(a)) y (b, f(b)). La fórmula usada es:
 c = b - f(b) * (b - a) / (f(b) - f(a))
 
-Luego evalúa f(c) y conserva el subintervalo que sigue encerrando el cambio de signo.
-De esta forma la raíz nunca se pierde, porque siempre queda dentro del intervalo.
+Luego evalúa f(c) y conserva el subintervalo que sigue encerrando la raíz.
+De ese modo la raíz no se pierde durante la iteración.
 
-3. Corrección para evitar estancamiento
-La Regula Falsi clásica puede avanzar muy lento si una de las dos cotas queda casi fija.
-Para reducir ese problema, la implementación usa una corrección tipo Illinois:
-- si un lado se repite demasiado, se reduce su peso funcional
-- eso hace que la siguiente intersección se desplace más hacia el lado que estaba quedando bloqueado
+4. Corrección de Illinois
+Por defecto, el método activa la corrección de Illinois para evitar que una de
+las cotas quede fija durante muchas iteraciones.
+Si se desea, esa corrección puede desactivarse desde el parámetro opcional del
+función.
 
-El objetivo es acelerar la convergencia sin abandonar la seguridad del método cerrado.
-
-4. Caso sin cambio de signo
-Si f(a) y f(b) tienen el mismo signo, el método no cambia a Newton ni a bisección.
-En su lugar hace una búsqueda local dentro del intervalo para reducir |f(x)| y aproximarse a una zona donde pueda estar la raíz.
-Esto sirve como salvaguarda para casos del TP en los que el intervalo inicial no encierra explícitamente un cambio de signo.
-
-5. Criterio de parada
-En la rama principal, el método detiene la iteración cuando dos aproximaciones consecutivas cumplen:
-|c_k - c_{k-1}| <= tol
-
-También se limita la cantidad de iteraciones con max_iter = 150.
+5. Criterio de parada y fallos
+La iteración se detiene estrictamente cuando dos aproximaciones consecutivas
+cumplen |c_k - c_{k-1}| <= tol.
+Además, el método limita el proceso con max_iter = 150.
+Si no alcanza la tolerancia dentro de ese máximo, lanza una excepción RuntimeError.
 
 6. Resumen
-En conjunto, la implementación combina:
-- falsa posición como método principal
-- una corrección anti-estancamiento
-- una salvaguarda para intervalos sin cambio de signo
-
-Eso la vuelve más robusta para el TP y, en general, más conveniente que una Regula Falsi puramente clásica.
+La implementación actual es una Regula Falsi reutilizable para algoritmos
+híbridos:
+- requiere encierro previo de la raíz
+- usa Illinois por defecto para acelerar la convergencia
+- falla explícitamente si no hay cambio de signo o si no converge a tiempo

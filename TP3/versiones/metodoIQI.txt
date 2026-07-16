@@ -1,0 +1,45 @@
+Método de Interpolación Cuadrática Inversa (IQI) implementado en metodoIQI.py
+
+1. Idea general
+El método de Interpolación Cuadrática Inversa (IQI) usa tres aproximaciones para
+construir una parábola sobre la función inversa.
+En lugar de interpolar y = f(x), interpola x como función de y usando los pares
+(f(x), x) y luego busca el corte con el eje horizontal.
+
+2. Inicialización
+La implementación arranca con tres puntos:
+- a
+- el punto medio (a + b) / 2
+- b
+
+En cada uno evalúa f(x) con tipo="comun" y almacena esos valores para empezar.
+Si alguno de esos puntos ya es raíz exacta, el método lo devuelve inmediatamente.
+
+3. Paso de IQI
+Con los tres puntos actuales, el código calcula un nuevo candidato mediante la
+fórmula de interpolación cuadrática inversa.
+El método es abierto, así que no necesita cambio de signo para iterar.
+
+4. Control de estabilidad
+Si la interpolación produce un punto repetido o degenerado, el código recurre a
+un paso alternativo más simple para seguir avanzando sin romper la iteración.
+
+5. Criterio de parada
+El método se detiene cuando la diferencia entre el mejor punto actual y el mejor
+punto de la iteración anterior cumple:
+|x_k - x_{k-1}| <= tol
+
+Además, la cantidad máxima de iteraciones es configurable con max_iter.
+Por defecto usa max_iter = 150.
+
+6. Falla explícita
+Si no se alcanza la tolerancia dentro del máximo de iteraciones, el método lanza
+una excepción RuntimeError en lugar de devolver un valor aproximado sin aviso.
+
+7. Resumen
+En conjunto, la implementación actual es una versión abierta de IQI pensada
+como componente reutilizable dentro de un algoritmo híbrido:
+- usa tres puntos iniciales
+- no depende de cambio de signo
+- tiene criterio de parada estricto
+- falla explícitamente si no converge a tiempo

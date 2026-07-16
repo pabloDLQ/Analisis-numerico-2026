@@ -1,4 +1,4 @@
-def encontrar_raiz(f, a, b, tol):
+def encontrar_raiz(f, a, b, tol, use_illinois=True):
     """
     Argumentos de entrada:
     f : Función a evaluar. Se debe invocar especificando el "tipo" de llamada:
@@ -26,23 +26,7 @@ def encontrar_raiz(f, a, b, tol):
         return b
 
     if fa * fb > 0:
-        izquierda = a
-        derecha = b
-        for _ in range(max_iter):
-            if abs(derecha - izquierda) <= tol:
-                break
-
-            m1 = izquierda + (derecha - izquierda) / 3.0
-            m2 = derecha - (derecha - izquierda) / 3.0
-            fm1 = abs(f(m1, tipo="comun"))
-            fm2 = abs(f(m2, tipo="comun"))
-
-            if fm1 <= fm2:
-                derecha = m2
-            else:
-                izquierda = m1
-
-        return (izquierda + derecha) / 2.0
+        raise ValueError("El intervalo no contiene un cambio de signo")
 
     x_anterior = None
     lado_anterior = None
@@ -50,7 +34,7 @@ def encontrar_raiz(f, a, b, tol):
     for _ in range(max_iter):
         denominador = fb - fa
         if denominador == 0.0:
-            return (a + b) / 2.0
+            raise RuntimeError("No se alcanzó la tolerancia en el máximo de iteraciones")
 
         c = b - fb * (b - a) / denominador
         fc = f(c, tipo="comun")
@@ -64,16 +48,16 @@ def encontrar_raiz(f, a, b, tol):
         if fa * fc < 0:
             b = c
             fb = fc
-            if lado_anterior == "b":
+            if use_illinois and lado_anterior == "b":
                 fa *= 0.5
             lado_anterior = "b"
         else:
             a = c
             fa = fc
-            if lado_anterior == "a":
+            if use_illinois and lado_anterior == "a":
                 fb *= 0.5
             lado_anterior = "a"
 
         x_anterior = c
 
-    return c
+    raise RuntimeError("No se alcanzó la tolerancia en el máximo de iteraciones")
