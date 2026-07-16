@@ -1,0 +1,57 @@
+Metodo de Brent (Brent-Dekker) implementado en metodoBrent.py
+
+1. Idea general
+El metodo de Brent combina tres estrategias:
+- Interpolacion Cuadratica Inversa (IQI)
+- Secante
+- Biseccion
+
+La idea es usar pasos rapidos (IQI o secante) cuando son confiables y caer a biseccion cuando no lo son.
+Asi se logra convergencia robusta con buena velocidad.
+
+2. Requisito del intervalo
+Este metodo necesita que f(a) y f(b) tengan signos opuestos.
+Si no hay cambio de signo, el codigo lanza:
+ValueError("El intervalo no contiene un cambio de signo")
+
+Si f(a) == 0 o f(b) == 0, devuelve ese extremo inmediatamente.
+
+3. Inicializacion
+El algoritmo evalua fa = f(a) y fb = f(b) una sola vez al inicio.
+Luego asegura que |fb| <= |fa| intercambiando extremos si hace falta.
+Esto mantiene a b como la mejor cota actual en terminos de valor funcional.
+
+Ademas define:
+- c como punto historico
+- d como punto auxiliar para condiciones de paso
+- mflag para recordar si el ultimo paso fue por biseccion
+
+4. Paso principal por iteracion
+En cada vuelta:
+- Si hay tres valores funcionales distintos, intenta IQI.
+- Si no, usa secante.
+- Antes de aceptar el candidato s, verifica las condiciones de seguridad de Brent.
+- Si falla alguna condicion, reemplaza s por el punto medio (biseccion).
+
+Estas condiciones evitan pasos inestables o demasiado pequenos.
+
+5. Criterios de parada
+El metodo puede terminar por:
+- raiz exacta: fs == 0
+- convergencia por iterados: |s - x_anterior| <= tol
+- intervalo suficientemente cerrado: |b - a| <= tol
+
+Ademas respeta max_iter (por defecto 150).
+Si no converge dentro de ese limite, lanza:
+RuntimeError("No se alcanzo la tolerancia en el maximo de iteraciones")
+
+6. Coste y telemetria
+Todas las evaluaciones de la funcion se hacen con tipo="comun".
+No usa derivadas, por lo que no hay llamadas tipo="derivada".
+
+7. Resumen
+La implementacion actual de Brent en este proyecto:
+- garantiza robustez por encierro de raiz
+- acelera con IQI/secante cuando puede
+- se protege con biseccion cuando el paso propuesto no es seguro
+- informa fallos explicitamente mediante excepciones
