@@ -1,0 +1,52 @@
+Log de metodoSecante
+
+Aclaro primero algo importante: la secante es un metodo abierto, asi que no garantiza mantener un encierro riguroso de la raiz como lo haria biseccion. En este archivo se agregaron algunas salvaguardas para evitar saltos extremos y puntos no finitos, pero aun asi varias funciones del banco no daban resultados correctos porque la secante puede oscilar, perder estabilidad o elegir malas semillas iniciales.
+
+1. Importacion auxiliar: linea 1.
+   Se importa math para usar math.isfinite como control de seguridad.
+   Ese chequeo evita aceptar valores no numericos o saltos fuera del intervalo.
+
+2. Firma de la funcion: lineas 3-18.
+   La funcion se llama encontrar_raiz(f, a, b, tol) y conserva la interfaz que usa el probador.
+   El docstring deja claro el contrato de entrada, la forma de llamar a f y el criterio de parada esperado.
+
+3. Limite de iteraciones: linea 20.
+   max_iter = 150 fija el techo de trabajo del metodo.
+   Esto cumple la consigna y evita que el algoritmo quede iterando indefinidamente si no converge bien.
+
+4. Barrido inicial del intervalo: lineas 21-43.
+   subdivisiones = 64 divide el intervalo [a, b] en una malla de puntos.
+   Luego se evalua f(x, tipo="comun") en cada punto para detectar ceros exactos y conservar el valor con menor |f(x)| como mejor_x.
+   Este barrido no convierte el metodo en biseccion: solo se usa para elegir semillas mas razonables antes de aplicar la secante.
+
+5. Eleccion del mejor par inicial: lineas 45-64.
+   El metodo revisa pares consecutivos del barrido y elige el par adyacente que mejor aproxima la raiz.
+   Si aparece un cambio de signo, se prioriza ese par porque suele ser un arranque mas estable; si no, se elige el par con menor suma de valores absolutos.
+
+6. Preparacion del soporte de seguridad: lineas 66-72.
+   Si el par elegido tiene cambio de signo, se guarda ese tramo como soporte numerico.
+   Esto no cambia el metodo principal: la iteracion sigue siendo secante, y este soporte solo sirve como respaldo si la iteracion se comporta mal.
+
+7. Inicio de la secante: lineas 79-85.
+   En cada iteracion se calcula denominador = f_actual - f_anterior y se aplica la formula clasica de la secante.
+   La nueva aproximacion se obtiene solo con los dos ultimos puntos, que es lo que define al metodo secante.
+
+8. Salvaguarda por denominador nulo o salto invalido: lineas 82-91.
+   Si el denominador es cero, se usa el punto medio de los dos ultimos valores.
+   Si el nuevo punto no es finito o queda fuera de [a, b], se cae a un punto medio de seguridad.
+   Estas defensas intentan mantener el metodo en una zona numericamente util, pero no eliminan del todo los problemas propios de un metodo abierto.
+
+9. Evaluacion del nuevo punto y criterio de parada: lineas 93-103.
+   Cada candidato se evalua con f(x_siguiente, tipo="comun") y, si vale cero, se devuelve de inmediato.
+   Si no, el metodo se detiene cuando |x_siguiente - x_actual| <= tol, que es el criterio pedido por la consigna.
+
+10. Actualizacion de la secante y del soporte: lineas 105-112.
+    Si habia bracket de respaldo, se reajusta segun el signo del nuevo punto.
+    Luego el nuevo candidato pasa a ser el actual y el actual pasa a ser el anterior, descartando el dato mas viejo como corresponde en secante.
+
+11. Salida final: linea 114.
+    Si no se cumple la tolerancia antes de llegar a 150 iteraciones, el metodo devuelve x_actual.
+    Eso asegura una salida numerica aunque la convergencia no haya sido satisfactoria.
+
+Resumen final:
+El codigo intenta aplicar secante pura con un barrido previo para elegir semillas mejores y con algunas salvaguardas de seguridad. Aun asi, al ser un metodo abierto, no siempre se comporta bien: en varias funciones del banco la convergencia fue sensible a la eleccion inicial y a la falta de encierro estricto de la raiz.
