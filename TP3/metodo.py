@@ -29,7 +29,7 @@ def encontrar_raiz(f, a, b, tol):
         return NR.encontrar_raiz(f, a, b, tol)
 
     # usamos una tolerancia amplia para bisección.
-    tol_biseccion = (b - a) / 16.0 # son 16 porque son 2^4 iteraciones asi no hay penalizacion monotona
+    tol_biseccion = (b - a) / 32
 
     # si el intervalo ya es chico, subimos un poco la tolerancia.
     if tol_biseccion <= tol:
