@@ -1,0 +1,46 @@
+Método Regula Falsi implementado en metodo.py
+
+Este archivo describe el comportamiento del método de búsqueda de raíces que se usa actualmente en metodo.py.
+
+1. Idea general
+El método parte de dos extremos a y b. Primero evalúa f(a) y f(b) con tipo="comun".
+Si alguno de los extremos ya es raíz exacta, el método devuelve ese valor inmediatamente.
+
+2. Caso principal: falsa posición
+Si f(a) y f(b) tienen signos opuestos, el método aplica Regula Falsi:
+- calcula la recta que une los puntos (a, f(a)) y (b, f(b))
+- obtiene el cruce de esa recta con el eje x
+- usa ese punto c como nueva aproximación de la raíz
+
+La fórmula usada es:
+c = b - f(b) * (b - a) / (f(b) - f(a))
+
+Luego evalúa f(c) y conserva el subintervalo que sigue encerrando el cambio de signo.
+De esta forma la raíz nunca se pierde, porque siempre queda dentro del intervalo.
+
+3. Corrección para evitar estancamiento
+La Regula Falsi clásica puede avanzar muy lento si una de las dos cotas queda casi fija.
+Para reducir ese problema, la implementación usa una corrección tipo Illinois:
+- si un lado se repite demasiado, se reduce su peso funcional
+- eso hace que la siguiente intersección se desplace más hacia el lado que estaba quedando bloqueado
+
+El objetivo es acelerar la convergencia sin abandonar la seguridad del método cerrado.
+
+4. Caso sin cambio de signo
+Si f(a) y f(b) tienen el mismo signo, el método no cambia a Newton ni a bisección.
+En su lugar hace una búsqueda local dentro del intervalo para reducir |f(x)| y aproximarse a una zona donde pueda estar la raíz.
+Esto sirve como salvaguarda para casos del TP en los que el intervalo inicial no encierra explícitamente un cambio de signo.
+
+5. Criterio de parada
+En la rama principal, el método detiene la iteración cuando dos aproximaciones consecutivas cumplen:
+|c_k - c_{k-1}| <= tol
+
+También se limita la cantidad de iteraciones con max_iter = 150.
+
+6. Resumen
+En conjunto, la implementación combina:
+- falsa posición como método principal
+- una corrección anti-estancamiento
+- una salvaguarda para intervalos sin cambio de signo
+
+Eso la vuelve más robusta para el TP y, en general, más conveniente que una Regula Falsi puramente clásica.
