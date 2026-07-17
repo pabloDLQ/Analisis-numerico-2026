@@ -1,0 +1,10 @@
+Este archivo describe el propósito del módulo test_metodo.py.
+
+Función principal:
+- verificar que el método implementado en metodo.py encuentre correctamente raíces de funciones de prueba.
+- comprobar que el algoritmo converja a la raíz esperada para casos simples.
+- validar que el parámetro max_iter se acepte y se utilice correctamente.
+
+Archivos relacionados:
+- test_metodo.py: contiene las pruebas unitarias.
+- metodo.py: módulo que se está probando.

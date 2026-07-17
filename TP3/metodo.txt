@@ -1,0 +1,12 @@
+Este archivo describe el propósito del módulo metodo.py.
+
+Función principal:
+- implementar una estrategia para encontrar raíces de funciones reales usando varios métodos numéricos.
+- evaluar la función recibida con el parámetro tipo="comun" y, cuando corresponde, con tipo="derivada".
+- usar un respaldo de bisección para intervalos con cambio de signo.
+- intentar métodos abiertos como Newton-Raphson, IQI y secante según la situación.
+- devolver una aproximación de la raíz y manejar límites de iteraciones mediante max_iter.
+
+Archivos relacionados:
+- metodo.py: contiene la implementación principal.
+- test_metodo.py: contiene pruebas de regresión para validar el comportamiento del método.

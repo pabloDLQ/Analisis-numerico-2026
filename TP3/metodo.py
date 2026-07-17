@@ -4,7 +4,43 @@ import versiones.metodoIQI as metodoIQI
 import versiones.metodoSecante as metodoSecante
 
 
-def encontrar_raiz(f, a, b, tol):
+def _biseccion_fallback(f, a, b, tol, max_iter=200):
+    """Respaldo robusto para intervalos con cambio de signo."""
+    fa = f(a, tipo="comun")
+    fb = f(b, tipo="comun")
+
+    if fa == 0.0:
+        return a
+    if fb == 0.0:
+        return b
+
+    if fa * fb > 0:
+        raise ValueError("El intervalo no contiene un cambio de signo")
+
+    x_anterior = None
+    x = (a + b) / 2.0
+    for _ in range(max_iter):
+        fx = f(x, tipo="comun")
+
+        if fx == 0.0:
+            return x
+        if abs(b - a) <= tol:
+            return x
+        if x_anterior is not None and abs(x - x_anterior) <= tol:
+            return x
+
+        if fa * fx < 0:
+            b, fb = x, fx
+        else:
+            a, fa = x, fx
+
+        x_anterior = x
+        x = (a + b) / 2.0
+
+    return x
+
+
+def encontrar_raiz(f, a, b, tol, max_iter=150):
     """
     Argumentos de entrada:
     f : Función a evaluar. Se debe invocar especificando el "tipo" de llamada:
@@ -12,6 +48,7 @@ def encontrar_raiz(f, a, b, tol):
     - Para evaluar puntos destinados al cálculo de derivadas: f(x, tipo="derivada")
     a, b: Flotantes. Extremos del intervalo inicial (b > a).
     tol : Flotante>0. Tolerancia de convergencia.
+    max_iter : Entero positivo. Cantidad máxima de iteraciones permitidas.
     El algoritmo DEBE detenerse estrictamente cuando | x_k - x_{k-1} | <= tol.
     Para la evaluación, el equipo docente utilizará: tol = 1e-12
     Retorno:
@@ -21,7 +58,9 @@ def encontrar_raiz(f, a, b, tol):
     # fx = f(x, tipo="comun")
     # fx_der = f(x + dx, tipo="derivada")
 
-    max_iter = 150
+    max_iter = int(max_iter)
+    if max_iter <= 0:
+        raise ValueError("max_iter debe ser un entero positivo")
 
     cache = {}
     mejor_x = None
@@ -70,48 +109,27 @@ def encontrar_raiz(f, a, b, tol):
     if fb == 0.0:
         return b
 
-    # Caso 1: Hay cambio de signo -> estrategia cerrada + refinamiento.
+    # Caso 1: Hay cambio de signo -> usar bisección como respaldo robusto.
     if fa * fb < 0:
-        try:
-            raiz_breve = metodoBrent.encontrar_raiz(f_track, a, b, tol, max_iter=4)
-            return raiz_breve
-        except (ValueError, RuntimeError):
-            pass
-
-        # Intentamos NR en el intervalo original para aprovechar derivadas y cortar rafagas.
-        try:
-            f_nr = f_limited(f_track, max_comun=10, max_derivada=10)
-            raiz_nr = NR.encontrar_raiz(f_nr, a, b, tol)
-            return raiz_nr
-        except Exception:
-            pass
-
-        # Garantia final en caso de que NR no converja.
-        try:
-            raiz_brent = metodoBrent.encontrar_raiz(f_track, a, b, tol)
-            return raiz_brent
-        except (ValueError, RuntimeError):
-            if mejor_x is not None:
-                return mejor_x
-            raise RuntimeError("No se pudo encontrar la raíz")
+        return _biseccion_fallback(f_track, a, b, tol, max_iter=max_iter)
 
     # Caso 2: No hay cambio de signo -> metodos abiertos priorizando NR.
     try:
-        f_nr_abierto = f_limited(f_track, max_comun=10, max_derivada=10)
+        f_nr_abierto = f_limited(f_track, max_comun=max_iter, max_derivada=max_iter)
         raiz_nr_abierto = NR.encontrar_raiz(f_nr_abierto, a, b, tol)
         return raiz_nr_abierto
     except Exception:
         pass
 
     try:
-        raiz_iqi = metodoIQI.encontrar_raiz(f_track, a, b, tol, max_iter=4)
+        raiz_iqi = metodoIQI.encontrar_raiz(f_track, a, b, tol, max_iter=max_iter)
         return raiz_iqi
     except Exception:
         pass
 
     try:
         # Secante no expone max_iter en esta version: limitamos por cantidad de evaluaciones.
-        f_secante = f_limited(f_track, max_comun=6, max_derivada=0)
+        f_secante = f_limited(f_track, max_comun=max_iter, max_derivada=0)
         raiz_sec = metodoSecante.encontrar_raiz(f_secante, a, b, tol)
         return raiz_sec
     except Exception:
