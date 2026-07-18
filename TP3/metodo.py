@@ -19,56 +19,25 @@ def encontrar_raiz(f, a, b, tol):
     # fx_der = f(x + dx, tipo="derivada")
     max_iter = 150
 
-    if tol <= 0:
-        raise ValueError("tol debe ser positiva")
-    if b <= a:
-        raise ValueError("Se espera que b > a")
 
     evaluaciones_comunes = 0
     newton_usado = False
     mejor_x = None
     mejor_abs_f = float("inf")
 
-    def f_comun(x):
-        nonlocal evaluaciones_comunes, mejor_x, mejor_abs_f
-        evaluaciones_comunes += 1
-        valor = f(x, tipo="comun")
-        abs_valor = abs(valor)
-        if abs_valor < mejor_abs_f:
-            mejor_abs_f = abs_valor
-            mejor_x = x
-        return valor
+    evaluaciones_comunes += 1
+    fa = f(a, tipo="comun")
+    abs_fa = abs(fa)
+    if abs_fa < mejor_abs_f:
+        mejor_abs_f = abs_fa
+        mejor_x = a
 
-    def f_derivada(x):
-        return f(x, tipo="derivada")
-
-    def secante(x0, f0, x1, f1):
-        denominador = f1 - f0
-        if denominador == 0.0:
-            return None
-        candidato = x1 - f1 * (x1 - x0) / denominador
-        if not math.isfinite(candidato):
-            return None
-        return candidato
-
-    def nuevo_x_por_newton(x_ref, fx_ref):
-        nonlocal newton_usado
-        if newton_usado or evaluaciones_comunes >= 4:
-            return None
-
-        f_der = f_derivada(x_ref)
-        if f_der == 0.0 or not math.isfinite(f_der):
-            return None
-
-        candidato = x_ref - fx_ref / f_der
-        if not math.isfinite(candidato):
-            return None
-
-        newton_usado = True
-        return candidato
-
-    fa = f_comun(a)
-    fb = f_comun(b)
+    evaluaciones_comunes += 1
+    fb = f(b, tipo="comun")
+    abs_fb = abs(fb)
+    if abs_fb < mejor_abs_f:
+        mejor_abs_f = abs_fb
+        mejor_x = b
 
     if fa == 0.0:
         return float(a)
@@ -79,7 +48,12 @@ def encontrar_raiz(f, a, b, tol):
         x_anterior = None
         for _ in range(max_iter):
             punto_medio = (a + b) / 2.0
-            fm = f_comun(punto_medio)
+            evaluaciones_comunes += 1
+            fm = f(punto_medio, tipo="comun")
+            abs_fm = abs(fm)
+            if abs_fm < mejor_abs_f:
+                mejor_abs_f = abs_fm
+                mejor_x = punto_medio
             if fm == 0.0:
                 return float(punto_medio)
 
@@ -96,15 +70,33 @@ def encontrar_raiz(f, a, b, tol):
             if x_anterior is not None and abs(raiz_estimada - x_anterior) <= tol:
                 return float(raiz_estimada)
 
-            fx = f_comun(raiz_estimada)
+            evaluaciones_comunes += 1
+            fx = f(raiz_estimada, tipo="comun")
+            abs_fx = abs(fx)
+            if abs_fx < mejor_abs_f:
+                mejor_abs_f = abs_fx
+                mejor_x = raiz_estimada
             if fx == 0.0:
                 return float(raiz_estimada)
 
             if not newton_usado and evaluaciones_comunes >= 4:
-                candidato_newton = nuevo_x_por_newton(raiz_estimada, fx)
+                f_der = f(raiz_estimada, tipo="derivada")
+                if f_der != 0.0 and math.isfinite(f_der):
+                    candidato_newton = raiz_estimada - fx / f_der
+                    if math.isfinite(candidato_newton):
+                        newton_usado = True
+                    else:
+                        candidato_newton = None
+                else:
+                    candidato_newton = None
                 if candidato_newton is not None and a <= candidato_newton <= b:
                     raiz_estimada = candidato_newton
-                    fx = f_comun(raiz_estimada)
+                    evaluaciones_comunes += 1
+                    fx = f(raiz_estimada, tipo="comun")
+                    abs_fx = abs(fx)
+                    if abs_fx < mejor_abs_f:
+                        mejor_abs_f = abs_fx
+                        mejor_x = raiz_estimada
                     if fx == 0.0:
                         return float(raiz_estimada)
 
@@ -125,22 +117,46 @@ def encontrar_raiz(f, a, b, tol):
     x_anterior = None
 
     for _ in range(max_iter):
-        raiz_estimada = secante(x0, f0, x1, f1)
+        denominador = f1 - f0
+        if denominador == 0.0:
+            raiz_estimada = None
+        else:
+            raiz_estimada = x1 - f1 * (x1 - x0) / denominador
+            if not math.isfinite(raiz_estimada):
+                raiz_estimada = None
         if raiz_estimada is None or raiz_estimada < a or raiz_estimada > b:
             raiz_estimada = (a + b) / 2.0
 
         if x_anterior is not None and abs(raiz_estimada - x_anterior) <= tol:
             return float(raiz_estimada)
 
-        fx = f_comun(raiz_estimada)
+        evaluaciones_comunes += 1
+        fx = f(raiz_estimada, tipo="comun")
+        abs_fx = abs(fx)
+        if abs_fx < mejor_abs_f:
+            mejor_abs_f = abs_fx
+            mejor_x = raiz_estimada
         if fx == 0.0:
             return float(raiz_estimada)
 
         if not newton_usado and evaluaciones_comunes >= 4:
-            candidato_newton = nuevo_x_por_newton(raiz_estimada, fx)
+            f_der = f(raiz_estimada, tipo="derivada")
+            if f_der != 0.0 and math.isfinite(f_der):
+                candidato_newton = raiz_estimada - fx / f_der
+                if math.isfinite(candidato_newton):
+                    newton_usado = True
+                else:
+                    candidato_newton = None
+            else:
+                candidato_newton = None
             if candidato_newton is not None and a <= candidato_newton <= b:
                 raiz_estimada = candidato_newton
-                fx = f_comun(raiz_estimada)
+                evaluaciones_comunes += 1
+                fx = f(raiz_estimada, tipo="comun")
+                abs_fx = abs(fx)
+                if abs_fx < mejor_abs_f:
+                    mejor_abs_f = abs_fx
+                    mejor_x = raiz_estimada
                 if fx == 0.0:
                     return float(raiz_estimada)
 

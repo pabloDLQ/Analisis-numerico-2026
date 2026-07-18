@@ -3,46 +3,43 @@ Este archivo explica el funcionamiento de [metodoHibridoV02.py](metodoHibridoV02
 Idea general:
 - La función pública sigue siendo `encontrar_raiz(f, a, b, tol)`, definida en [metodoHibridoV02.py#L4](metodoHibridoV02.py#L4).
 - La entrada esperada y el contrato de uso de `f` se describen en el docstring de [metodoHibridoV02.py#L5-L15](metodoHibridoV02.py#L5-L15).
-- El método combina una rama segura con cambio de signo y una rama abierta con secante, con un uso puntual de Newton como apoyo.
+- El método ya no llama a funciones auxiliares internas: la lógica de evaluación común, derivada, secante y Newton quedó escrita directamente en el cuerpo principal.
 
 Entrada y validaciones:
 - El límite de iteraciones se fija con `max_iter = 150` en [metodoHibridoV02.py#L20](metodoHibridoV02.py#L20).
 - La tolerancia se valida en [metodoHibridoV02.py#L22-L23](metodoHibridoV02.py#L22-L23); si `tol <= 0`, se lanza un `ValueError`.
 - El intervalo también se valida en [metodoHibridoV02.py#L24-L25](metodoHibridoV02.py#L24-L25); se exige que `b > a`.
 
-Telemetría y auxiliares:
-- Se inicializa el contador de evaluaciones comunes y el estado de Newton en [metodoHibridoV02.py#L27-L30](metodoHibridoV02.py#L27-L30).
-- La función auxiliar `f_comun` incrementa el contador, evalúa con `tipo="comun"` y actualiza la mejor aproximación observada, como se ve en [metodoHibridoV02.py#L32-L40](metodoHibridoV02.py#L32-L40).
-- La función auxiliar `f_derivada` centraliza la evaluación con `tipo="derivada"` en [metodoHibridoV02.py#L42-L43](metodoHibridoV02.py#L42-L43).
-- La función `secante` calcula un candidato a partir de dos puntos y devuelve `None` si el denominador es cero o el resultado no es finito, según [metodoHibridoV02.py#L45-L52](metodoHibridoV02.py#L45-L52).
-- La función `nuevo_x_por_newton` permite una sola intervención de Newton, y además la bloquea cuando ya se usó o cuando ya hay cuatro evaluaciones comunes, en [metodoHibridoV02.py#L54-L68](metodoHibridoV02.py#L54-L68).
+Inicialización del estado:
+- Se preparan `evaluaciones_comunes`, `newton_usado`, `mejor_x` y `mejor_abs_f` en [metodoHibridoV02.py#L27-L30](metodoHibridoV02.py#L27-L30).
+- Desde las líneas [metodoHibridoV02.py#L32-L44](metodoHibridoV02.py#L32-L44) se hacen directamente las dos primeras evaluaciones de `f` en `a` y `b`, se incrementa el contador, y se guarda el mejor valor observado hasta ese momento.
 
 Evaluación inicial:
-- Se calculan `f(a)` y `f(b)` mediante `f_comun` en [metodoHibridoV02.py#L70-L71](metodoHibridoV02.py#L70-L71).
-- Si alguno de los extremos ya es raíz exacta, la función retorna de inmediato en [metodoHibridoV02.py#L73-L76](metodoHibridoV02.py#L73-L76).
+- Se calculan `f(a)` y `f(b)` directamente en [metodoHibridoV02.py#L32-L44](metodoHibridoV02.py#L32-L44).
+- Si alguno de los extremos ya es raíz exacta, la función retorna de inmediato en [metodoHibridoV02.py#L46-L49](metodoHibridoV02.py#L46-L49).
 
 Fase 1: rama segura con cambio de signo:
-- Esta rama se activa cuando `fa * fb < 0`, como indica [metodoHibridoV02.py#L78-L79](metodoHibridoV02.py#L78-L79).
-- En cada iteración se calcula el punto medio y se evalúa allí la función en [metodoHibridoV02.py#L80-L84](metodoHibridoV02.py#L80-L84).
-- A partir de los valores de los extremos se calcula un discriminante para construir una aproximación tipo Ridders en [metodoHibridoV02.py#L86-L91](metodoHibridoV02.py#L86-L91).
-- Si la aproximación no es numérica, se reemplaza por el punto medio en [metodoHibridoV02.py#L93-L94](metodoHibridoV02.py#L93-L94).
-- La convergencia se controla comparando con la iteración anterior en [metodoHibridoV02.py#L96-L97](metodoHibridoV02.py#L96-L97).
-- Luego se evalúa el nuevo candidato en [metodoHibridoV02.py#L99-L101](metodoHibridoV02.py#L99-L101).
-- Si todavía no se usó Newton y ya se alcanzaron cuatro evaluaciones comunes, se intenta un candidato de Newton en [metodoHibridoV02.py#L103-L109](metodoHibridoV02.py#L103-L109).
-- La actualización del intervalo conserva el cambio de signo según el caso observado en [metodoHibridoV02.py#L111-L117](metodoHibridoV02.py#L111-L117).
-- Si se agotan las iteraciones, se devuelve la mejor aproximación registrada en [metodoHibridoV02.py#L121-L121](metodoHibridoV02.py#L121-L121).
+- Esta rama se activa cuando `fa * fb < 0`, como indica [metodoHibridoV02.py#L51-L52](metodoHibridoV02.py#L51-L52).
+- En cada iteración se calcula el punto medio y se evalúa allí la función directamente, actualizando también la mejor aproximación observada, en [metodoHibridoV02.py#L53-L62](metodoHibridoV02.py#L53-L62).
+- A partir de los valores de los extremos se calcula un discriminante para construir una aproximación tipo Ridders en [metodoHibridoV02.py#L64-L72](metodoHibridoV02.py#L64-L72).
+- Si la aproximación no es numérica, se reemplaza por el punto medio en [metodoHibridoV02.py#L71-L72](metodoHibridoV02.py#L71-L72).
+- La convergencia se controla comparando con la iteración anterior en [metodoHibridoV02.py#L74-L75](metodoHibridoV02.py#L74-L75).
+- Luego se evalúa el nuevo candidato directamente en [metodoHibridoV02.py#L77-L84](metodoHibridoV02.py#L77-L84).
+- Si todavía no se usó Newton y ya se alcanzaron cuatro evaluaciones comunes, se calcula la derivada y se construye el candidato de Newton en línea, con la guardia de [metodoHibridoV02.py#L86-L105](metodoHibridoV02.py#L86-L105).
+- La actualización del intervalo conserva el cambio de signo según el caso observado en [metodoHibridoV02.py#L107-L115](metodoHibridoV02.py#L107-L115).
+- Si se agotan las iteraciones, se devuelve la mejor aproximación registrada en [metodoHibridoV02.py#L117-L117](metodoHibridoV02.py#L117-L117).
 
 Fase 2: rama abierta sin cambio de signo:
-- Si no hay cambio de signo, se inicia la secante con los extremos del intervalo en [metodoHibridoV02.py#L123-L125](metodoHibridoV02.py#L123-L125).
-- En cada iteración se calcula un candidato con la secante en [metodoHibridoV02.py#L127-L130](metodoHibridoV02.py#L127-L130).
-- Si el candidato sale del intervalo o no puede calcularse, se reemplaza por el punto medio, como se ve en [metodoHibridoV02.py#L129-L130](metodoHibridoV02.py#L129-L130).
-- La tolerancia se verifica comparando con la aproximación anterior en [metodoHibridoV02.py#L132-L133](metodoHibridoV02.py#L132-L133).
-- La función se evalúa en el nuevo punto en [metodoHibridoV02.py#L135-L137](metodoHibridoV02.py#L135-L137).
-- Si todavía no se usó Newton y ya hay al menos cuatro evaluaciones comunes, se intenta un candidato de Newton en [metodoHibridoV02.py#L139-L145](metodoHibridoV02.py#L139-L145).
-- Finalmente, la secante avanza actualizando sus dos últimos puntos en [metodoHibridoV02.py#L147-L149](metodoHibridoV02.py#L147-L149).
+- Si no hay cambio de signo, se inicia la secante con los extremos del intervalo en [metodoHibridoV02.py#L119-L121](metodoHibridoV02.py#L119-L121).
+- En cada iteración se calcula el denominador y el candidato de secante directamente en [metodoHibridoV02.py#L123-L130](metodoHibridoV02.py#L123-L130).
+- Si el candidato sale del intervalo o no puede calcularse, se reemplaza por el punto medio en [metodoHibridoV02.py#L131-L132](metodoHibridoV02.py#L131-L132).
+- La tolerancia se verifica comparando con la aproximación anterior en [metodoHibridoV02.py#L134-L135](metodoHibridoV02.py#L134-L135).
+- La función se evalúa en el nuevo punto y se actualiza el mejor valor observado en [metodoHibridoV02.py#L137-L144](metodoHibridoV02.py#L137-L144).
+- Si todavía no se usó Newton y ya hay al menos cuatro evaluaciones comunes, se calcula la derivada y se arma el candidato de Newton directamente en [metodoHibridoV02.py#L146-L165](metodoHibridoV02.py#L146-L165).
+- Finalmente, la secante avanza actualizando sus dos últimos puntos en [metodoHibridoV02.py#L167-L169](metodoHibridoV02.py#L167-L169).
 
 Salida:
-- Si ninguna rama termina antes, la función devuelve la mejor aproximación acumulada en [metodoHibridoV02.py#L151](metodoHibridoV02.py#L151).
+- Si ninguna rama termina antes, la función devuelve la mejor aproximación acumulada en [metodoHibridoV02.py#L171](metodoHibridoV02.py#L171).
 - El valor devuelto siempre es un número flotante, que representa la mejor estimación encontrada para la raíz.
 
 Resumen operativo:

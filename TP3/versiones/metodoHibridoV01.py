@@ -19,10 +19,6 @@ def encontrar_raiz(f, a, b, tol):
     # fx_der = f(x + dx, tipo="derivada")
     max_iter = 150
 
-    if tol <= 0:
-        raise ValueError("tol debe ser positiva")
-    if b <= a:
-        raise ValueError("Se espera que b > a")
 
     fa = f(a, tipo="comun")
     fb = f(b, tipo="comun")
