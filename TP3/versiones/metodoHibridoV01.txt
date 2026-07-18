@@ -1,0 +1,35 @@
+Este archivo explica, paso por paso, qué hace el módulo metodo.py.
+
+Idea general:
+- El módulo expone una sola función pública: encontrar_raiz(f, a, b, tol).
+- La función recibe una función f que debe evaluarse con tipo="comun" o tipo="derivada".
+- El objetivo es devolver una aproximación de la raíz usando una estrategia híbrida.
+
+Paso 1: lectura de la entrada.
+- Se recibe la función a estudiar y un intervalo inicial [a, b].
+- También se recibe una tolerancia tol para decidir cuándo detener el algoritmo.
+- Se usa un máximo de 150 iteraciones por cada etapa del método.
+
+Paso 2: evaluación inicial.
+- Se calculan f(a) y f(b).
+- Si alguno de los extremos ya es raíz exacta, se devuelve de inmediato.
+- Si el intervalo contiene un cambio de signo, se considera un caso apto para bisección.
+
+Paso 3: bisección cuando hay cambio de signo.
+- Se toma el punto medio del intervalo.
+- Se evalúa la función en ese punto.
+- Según el signo de la evaluación, se reemplaza el extremo izquierdo o el derecho.
+- Se repite hasta que la diferencia entre iteraciones sea menor o igual que tol, o hasta llegar al máximo de 150 pasos.
+
+Paso 4: métodos abiertos cuando no hay cambio de signo.
+- Si no se puede usar bisección, se intenta otra aproximación con derivada.
+- Si esa etapa falla, se usa un respaldo adicional basado en secante.
+- Todas las etapas respetan el límite de 150 iteraciones.
+
+Paso 5: salida.
+- La función devuelve solo un número flotante.
+- Ese número representa la mejor estimación de la raíz encontrada.
+
+Archivos relacionados:
+- metodo.py: contiene la implementación principal.
+- test_metodo.py: contiene pruebas unitarias simples para verificar el resultado.

@@ -1,9 +1,25 @@
-Este archivo describe el propósito del módulo test_metodo.py.
+Este archivo explica, paso por paso, qué verifica el módulo test_metodo.py.
 
-Función principal:
-- verificar que el método implementado en metodo.py encuentre correctamente raíces de funciones de prueba.
-- comprobar que el algoritmo converja a la raíz esperada para casos simples.
-- validar que el parámetro max_iter se acepte y se utilice correctamente.
+Idea general:
+- El archivo contiene pruebas unitarias para el método definido en metodo.py.
+- Las pruebas no reimplementan el algoritmo: solo comprueban que el resultado sea razonable.
+
+Paso 1: definir una función de prueba.
+- Se crea f2(x), una función sencilla con raíz conocida.
+- Esa raíz conocida permite comparar el resultado del algoritmo con un valor esperado.
+
+Paso 2: ejecutar el método bajo prueba.
+- La prueba llama a metodo.encontrar_raiz(f2, 0.0, 1.0, 1e-12).
+- Se usa un intervalo donde la raíz está contenida.
+- Se usa una tolerancia pequeña para exigir buena precisión.
+
+Paso 3: comprobar el resultado.
+- Se verifica que la raíz devuelta esté cerca de 0.75.
+- La comparación usa un margen pequeño para admitir diferencias numéricas normales.
+
+Paso 4: interpretación.
+- Si la prueba pasa, significa que el método encuentra una raíz compatible con la función de prueba.
+- Si falla, significa que el algoritmo o su implementación no están convergiendo como se espera.
 
 Archivos relacionados:
 - test_metodo.py: contiene las pruebas unitarias.
