@@ -1,35 +1,56 @@
-Este archivo explica, paso por paso, qué hace el módulo metodo.py.
+Este archivo explica el funcionamiento de [metodoHibridoV01.py](metodoHibridoV01.py).
 
 Idea general:
-- El módulo expone una sola función pública: encontrar_raiz(f, a, b, tol).
-- La función recibe una función f que debe evaluarse con tipo="comun" o tipo="derivada".
-- El objetivo es devolver una aproximación de la raíz usando una estrategia híbrida.
+- El módulo expone una única función pública: `encontrar_raiz(f, a, b, tol)`; su definición comienza en [metodoHibridoV01.py#L4](metodoHibridoV01.py#L4).
+- La función recibe una función `f` que debe aceptar `tipo="comun"` o `tipo="derivada"`; esto se documenta en el docstring de [metodoHibridoV01.py#L5-L19](metodoHibridoV01.py#L5-L19).
+- El objetivo es devolver una aproximación de la raíz usando una estrategia híbrida que primero intenta bisección, luego Newton amortiguado y finalmente una secante acotada.
 
-Paso 1: lectura de la entrada.
-- Se recibe la función a estudiar y un intervalo inicial [a, b].
-- También se recibe una tolerancia tol para decidir cuándo detener el algoritmo.
-- Se usa un máximo de 150 iteraciones por cada etapa del método.
+Entrada y validaciones:
+- `max_iter = 150` fija el límite de iteraciones para cada fase del método, como se ve en [metodoHibridoV01.py#L20](metodoHibridoV01.py#L20).
+- La tolerancia se valida en [metodoHibridoV01.py#L22-L23](metodoHibridoV01.py#L22-L23): si `tol <= 0`, se lanza un `ValueError`.
+- El intervalo también se valida en [metodoHibridoV01.py#L24-L25](metodoHibridoV01.py#L24-L25): se exige que `b > a`.
 
-Paso 2: evaluación inicial.
-- Se calculan f(a) y f(b).
-- Si alguno de los extremos ya es raíz exacta, se devuelve de inmediato.
-- Si el intervalo contiene un cambio de signo, se considera un caso apto para bisección.
+Evaluación inicial:
+- Primero se calculan `f(a)` y `f(b)` con `tipo="comun"`, en [metodoHibridoV01.py#L27-L28](metodoHibridoV01.py#L27-L28).
+- Si alguno de los extremos ya es raíz exacta, la función retorna inmediatamente ese valor en [metodoHibridoV01.py#L30-L33](metodoHibridoV01.py#L30-L33).
+- Antes de entrar en las fases iterativas, se inicializan `raiz_estimada` y `x_anterior` en [metodoHibridoV01.py#L35-L36](metodoHibridoV01.py#L35-L36).
 
-Paso 3: bisección cuando hay cambio de signo.
-- Se toma el punto medio del intervalo.
-- Se evalúa la función en ese punto.
-- Según el signo de la evaluación, se reemplaza el extremo izquierdo o el derecho.
-- Se repite hasta que la diferencia entre iteraciones sea menor o igual que tol, o hasta llegar al máximo de 150 pasos.
+Fase 1: bisección cuando hay cambio de signo:
+- Esta fase se activa solo si `fa * fb < 0`, como indica [metodoHibridoV01.py#L38-L39](metodoHibridoV01.py#L38-L39).
+- Dentro del ciclo de bisección, el punto medio se recalcula en [metodoHibridoV01.py#L40-L42](metodoHibridoV01.py#L40-L42).
+- Si el valor en el punto medio es cero, la raíz se devuelve de inmediato en [metodoHibridoV01.py#L44-L45](metodoHibridoV01.py#L44-L45).
+- La condición de parada por tolerancia usa la diferencia entre iteraciones consecutivas en [metodoHibridoV01.py#L46-L47](metodoHibridoV01.py#L46-L47).
+- La actualización del intervalo se hace según el signo de `fa * fx` en [metodoHibridoV01.py#L49-L52](metodoHibridoV01.py#L49-L52).
+- Al final de cada iteración se guarda `raiz_estimada` en `x_anterior` en [metodoHibridoV01.py#L54-L54](metodoHibridoV01.py#L54-L54).
+- Si se agotan las iteraciones, se devuelve la última aproximación calculada en [metodoHibridoV01.py#L56-L56](metodoHibridoV01.py#L56-L56).
 
-Paso 4: métodos abiertos cuando no hay cambio de signo.
-- Si no se puede usar bisección, se intenta otra aproximación con derivada.
-- Si esa etapa falla, se usa un respaldo adicional basado en secante.
-- Todas las etapas respetan el límite de 150 iteraciones.
+Fase 2: Newton amortiguado cuando no hay cambio de signo:
+- Si no se pudo aplicar bisección, se elige como punto inicial el extremo con menor valor absoluto de la función, según [metodoHibridoV01.py#L58-L62](metodoHibridoV01.py#L58-L62).
+- En cada paso se evalúa `f(raiz_estimada, tipo="comun")` en [metodoHibridoV01.py#L64-L67](metodoHibridoV01.py#L64-L67).
+- Luego se evalúa la derivada con `tipo="derivada"` en [metodoHibridoV01.py#L69-L71](metodoHibridoV01.py#L69-L71).
+- Si la derivada es cero o no es finita, la fase se abandona para evitar divisiones inválidas, como se ve en [metodoHibridoV01.py#L69-L71](metodoHibridoV01.py#L69-L71).
+- El candidato de Newton se calcula en [metodoHibridoV01.py#L73-L73](metodoHibridoV01.py#L73-L73).
+- Si el candidato no es finito, la iteración se corta en [metodoHibridoV01.py#L75-L76](metodoHibridoV01.py#L75-L76).
+- La convergencia por tolerancia se controla comparando el candidato con la estimación anterior en [metodoHibridoV01.py#L78-L79](metodoHibridoV01.py#L78-L79).
+- Si el candidato sale del intervalo inicial `[a, b]`, se abandona esta fase en [metodoHibridoV01.py#L81-L82](metodoHibridoV01.py#L81-L82).
+- Si el paso es válido, se actualiza la estimación en [metodoHibridoV01.py#L84-L85](metodoHibridoV01.py#L84-L85).
 
-Paso 5: salida.
-- La función devuelve solo un número flotante.
-- Ese número representa la mejor estimación de la raíz encontrada.
+Fase 3: secante acotada como respaldo final:
+- Si Newton no converge o no puede seguir, se inicializa la secante con los extremos del intervalo en [metodoHibridoV01.py#L87-L91](metodoHibridoV01.py#L87-L91).
+- El denominador de la secante se calcula en [metodoHibridoV01.py#L93-L96](metodoHibridoV01.py#L93-L96); si vale cero, la fase termina.
+- El nuevo candidato se obtiene con la fórmula de secante en [metodoHibridoV01.py#L98-L98](metodoHibridoV01.py#L98-L98).
+- Si el candidato no es finito, la fase se corta en [metodoHibridoV01.py#L99-L100](metodoHibridoV01.py#L99-L100).
+- La tolerancia también se usa para comparar el nuevo candidato con el punto anterior en [metodoHibridoV01.py#L102-L103](metodoHibridoV01.py#L102-L103).
+- Si el candidato sale del intervalo, se reemplaza por el punto medio para mantenerlo acotado, como se hace en [metodoHibridoV01.py#L105-L106](metodoHibridoV01.py#L105-L106).
+- Luego se evalúa la función en el candidato en [metodoHibridoV01.py#L108-L110](metodoHibridoV01.py#L108-L110).
+- Si el valor ya es cero, se devuelve la raíz exacta en [metodoHibridoV01.py#L109-L110](metodoHibridoV01.py#L109-L110).
+- La actualización de los dos puntos de secante ocurre en [metodoHibridoV01.py#L112-L113](metodoHibridoV01.py#L112-L113).
+- También aquí se detiene si la variación entre iteraciones cae por debajo de `tol`, como muestra [metodoHibridoV01.py#L115-L116](metodoHibridoV01.py#L115-L116).
 
-Archivos relacionados:
-- metodo.py: contiene la implementación principal.
-- test_metodo.py: contiene pruebas unitarias simples para verificar el resultado.
+Salida:
+- Si ninguna fase termina antes, la función devuelve la mejor estimación disponible en [metodoHibridoV01.py#L120](metodoHibridoV01.py#L120).
+- El valor devuelto siempre es un `float`, tal como indica el contrato de la función.
+
+Resumen operativo:
+- La estrategia del archivo es: primero aprovechar la garantía de cambio de signo con bisección; si eso no aplica, probar Newton usando derivada; y si eso falla, cerrar con una secante acotada.
+- Todas las decisiones importantes del algoritmo están concentradas en [metodoHibridoV01.py](metodoHibridoV01.py), y la explicación anterior sigue ese flujo línea por línea.
