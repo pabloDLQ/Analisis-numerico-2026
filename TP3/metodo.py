@@ -21,7 +21,7 @@ def encontrar_raiz(f, a, b, tol):
 
 
     evaluaciones_comunes = 0
-    newton_usado = False
+    llamadas_desde_ultimo_newton = 0
     mejor_x = None
     mejor_abs_f = float("inf")
 
@@ -71,6 +71,7 @@ def encontrar_raiz(f, a, b, tol):
                 return float(raiz_estimada)
 
             evaluaciones_comunes += 1
+            llamadas_desde_ultimo_newton += 1
             fx = f(raiz_estimada, tipo="comun")
             abs_fx = abs(fx)
             if abs_fx < mejor_abs_f:
@@ -79,12 +80,12 @@ def encontrar_raiz(f, a, b, tol):
             if fx == 0.0:
                 return float(raiz_estimada)
 
-            if not newton_usado and evaluaciones_comunes >= 4:
+            if llamadas_desde_ultimo_newton >= 4:
                 f_der = f(raiz_estimada, tipo="derivada")
                 if f_der != 0.0 and math.isfinite(f_der):
                     candidato_newton = raiz_estimada - fx / f_der
                     if math.isfinite(candidato_newton):
-                        newton_usado = True
+                        llamadas_desde_ultimo_newton = 0
                     else:
                         candidato_newton = None
                 else:
@@ -131,6 +132,7 @@ def encontrar_raiz(f, a, b, tol):
             return float(raiz_estimada)
 
         evaluaciones_comunes += 1
+        llamadas_desde_ultimo_newton += 1
         fx = f(raiz_estimada, tipo="comun")
         abs_fx = abs(fx)
         if abs_fx < mejor_abs_f:
@@ -139,12 +141,12 @@ def encontrar_raiz(f, a, b, tol):
         if fx == 0.0:
             return float(raiz_estimada)
 
-        if not newton_usado and evaluaciones_comunes >= 4:
+        if llamadas_desde_ultimo_newton >= 4:
             f_der = f(raiz_estimada, tipo="derivada")
             if f_der != 0.0 and math.isfinite(f_der):
                 candidato_newton = raiz_estimada - fx / f_der
                 if math.isfinite(candidato_newton):
-                    newton_usado = True
+                    llamadas_desde_ultimo_newton = 0
                 else:
                     candidato_newton = None
             else:
