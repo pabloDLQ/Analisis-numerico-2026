@@ -1,0 +1,175 @@
+EXPLICACION DETALLADA DEL CODIGO src/extraccionFOyDC.py
+
+1) OBJETIVO GENERAL
+El script procesa un video de dron para estimar:
+- Trayectoria horizontal en el mapa: X_mapa_px, Y_mapa_px.
+- Evolucion relativa de zoom/altitud: Z_relativa.
+
+Luego guarda:
+- Un CSV con todas las mediciones por frame.
+- Un grafico XY (trayectoria_xy_mapa.png).
+- Un grafico Z(t) (escala_z.png).
+
+
+2) ESTRUCTURA LOGICA DEL PROGRAMA
+El flujo principal es:
+main() -> extract_trajectory() -> postprocess_trajectory() -> save_results()
+
+- main(): toma argumentos de linea de comandos, ejecuta el pipeline y muestra resumen.
+- extract_trajectory(): hace tracking frame a frame y registro al mapa.
+- postprocess_trajectory(): limpia outliers en XY y estabiliza Z.
+- save_results(): exporta CSV y genera graficos.
+
+
+3) BLOQUES DEL CODIGO Y FUNCION DE CADA UNO
+
+3.1) Configuracion y rutas
+- ROOT: carpeta raiz del TP.
+- DEFAULT_VIDEO: data/vuelo_dron.mp4.
+- DEFAULT_MAP: data/mapa_satelital_completo.jpg.
+- DEFAULT_OUTPUT: data/resultados.
+
+Tambien se define la clase de datos Trajectory (dataclass), que encapsula todas las series temporales del proceso.
+
+
+3.2) Deteccion de puntos de interes: detect_features()
+Usa cv2.goodFeaturesToTrack sobre una imagen en escala de grises.
+Devuelve esquinas "rastreables" (features) para aplicar flujo optico.
+Si no encuentra puntos, devuelve arreglo vacio.
+
+Idea: sin buenos puntos, Lucas-Kanade no puede estimar desplazamiento confiable.
+
+
+3.3) Flujo optico Lucas-Kanade explicito: lucas_kanade()
+Implementa la forma clasica local:
+- Calcula gradientes espaciales Ix, Iy (Sobel) en frame previo.
+- Calcula gradiente temporal It = current - previous.
+- Para cada punto, arma el sistema normal:
+  (A^T A) u = A^T b
+  donde A contiene [Ix, Iy] y b contiene It en una ventana alrededor del punto.
+- Resuelve u = (u, v) por punto (desplazamiento del patch).
+
+Filtros internos importantes:
+- Descarta ventanas fuera de imagen.
+- Descarta matrices mal condicionadas (determinante pequeno).
+- Descarta flujos no finitos o exagerados (norma > 20 pixeles/frame).
+
+Salida:
+- old_valid: puntos originales validos.
+- new_valid: puntos desplazados.
+- flows: vectores de flujo por punto.
+- lk_error: error robusto del ajuste (mediana del error RMS por punto).
+
+
+3.4) Mascara robusta de inliers de flujo: robust_mask()
+Recibe todos los flows de un frame.
+- Calcula distancia de cada flujo al flujo mediano.
+- Usa MAD (desviacion absoluta mediana) para detectar outliers.
+- Devuelve mascara booleana de inliers.
+
+Objetivo: evitar que un subconjunto de vectores malos distorsione el movimiento global.
+
+
+3.5) Estimacion de escala relativa: relative_scale()
+A partir de old/new inliers:
+- Calcula centro robusto (mediana) en ambos conjuntos.
+- Calcula radios de cada punto al centro.
+- Estima razon new_radius / old_radius para cada punto usable.
+- Toma mediana de razones validas como escala de frame.
+
+Interpretacion:
+- escala > 1: expansion aparente (acercamiento / cambio relativo de zoom).
+- escala < 1: contraccion aparente.
+
+
+3.6) Registro de frame al mapa: register_frame()
+Ubica el frame del video dentro del mapa satelital:
+- Detecta/descriptores ORB en frame y mapa.
+- Hace matching KNN Hamming (k=2).
+- Aplica test de Lowe (ratio 0.72).
+- Con matches buenos, estima homografia con RANSAC.
+- Devuelve homografia e inliers del registro.
+
+Si no hay suficientes matches/inliers, devuelve None.
+
+
+3.7) Extraccion principal: extract_trajectory()
+Es el nucleo del pipeline temporal:
+
+a) Inicializacion
+- Carga mapa y video.
+- Obtiene fps.
+- Lee primer frame y lo suaviza (Gaussian blur).
+- Detecta puntos iniciales.
+- Precalcula features ORB del mapa.
+- Define centro del frame (punto que se proyecta al mapa).
+
+b) Bucle frame a frame
+Para cada frame siguiente:
+1. Preprocesa imagen (gris + blur).
+2. Calcula flujo LK en los puntos actuales.
+3. Filtra inliers de flujo con robust_mask().
+4. Si hay suficientes inliers:
+   - movimiento global = mediana de flujos.
+   - escala frame = relative_scale().
+   - acumula z_value *= scale_step.
+   - actualiza puntos a new_inliers.
+5. Si hay pocos puntos activos, redetecta features.
+6. Cada cierto numero de frames (registration_step) intenta registrar al mapa.
+7. Si hay homografia valida, proyecta el centro del frame al mapa.
+8. Guarda fila en rows con:
+   frame, tiempo, X, Y, Z, u, v, escala_frame, puntos_validos, error_LK, inliers_mapa, registrado.
+
+c) Post ajuste de cierre de trayectoria
+- Fuerza que el punto inicial sea el primer punto registrado.
+- Corrige deriva lineal para que el ultimo punto cierre en el inicio.
+
+Resultado: devuelve Trajectory con arrays tipados.
+
+
+3.8) Postprocesado robusto: postprocess_trajectory()
+Aplica dos correcciones clave antes de graficar/exportar:
+
+- _fix_xy_outliers():
+  1. Marca saltos bruscos de baja confianza (inliers_mapa bajos).
+  2. Marca saltos anormalmente grandes respecto a estadistica global de saltos.
+  3. Marca picos tipo "salto-retorno" local.
+  4. Marca frames de baja confianza rodeados de saltos.
+  5. Interpola puntos marcados (relleno temporal).
+  6. Aplica filtro mediano y suavizado por convolucion para eliminar dientes.
+
+- _rebuild_relative_scale():
+  1. Recorta escala por frame a un rango fisico razonable.
+  2. Trabaja en log-escala (mas estable para acumulacion multiplicativa).
+  3. Detecta muestras ruidosas con MAD + error LK + pocos puntos validos.
+  4. Reemplaza outliers por mediana robusta.
+  5. Suaviza temporalmente.
+  6. Reconstruye Z acumulada y aplica detrend suave para quitar deriva lenta.
+
+
+3.9) Exportacion y graficos: save_results()
+- Guarda trayectoria_mapa.csv con todas las columnas del proceso.
+- Grafico XY:
+  - Eje X: X_mapa_px.
+  - Eje Y: -Y_mapa_px (conversion a convencion cartesiana).
+  - Guarda trayectoria_xy_mapa.png.
+- Grafico Z(t):
+  - Eje X: tiempo_s.
+  - Eje Y: Z_relativa.
+  - Guarda escala_z.png.
+
+
+4) RESUMEN CONCEPTUAL
+- Lucas-Kanade aporta el desplazamiento local robusto en imagen.
+- El registro ORB+homografia convierte esa informacion al sistema del mapa satelital.
+- El postproceso robustece contra ruido, vibracion y fallas de matching.
+- El resultado final cumple con el objetivo del inciso 1:
+  trayectoria espacial XY y evolucion temporal de Z(t) extraidas desde video ruidoso.
+
+
+5) COMO EJECUTAR
+Desde la raiz del TP:
+python main.py
+
+Opcionalmente:
+python main.py --video data/vuelo_dron.mp4 --mapa data/mapa_satelital_completo.jpg --salida data/resultados --paso-registro 5

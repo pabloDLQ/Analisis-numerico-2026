@@ -1,0 +1,186 @@
+PARAMETROS COMPUTACIONALES: CRITERIO DE ELECCION, FUNCION E IMPORTANCIA RELATIVA
+
+Este documento explica:
+1) como se eligieron los parametros de src/extraccionFOyDC.py,
+2) que hace cada parametro,
+3) que tan importante es cada uno para este problema (video de dron con ruido, vibracion y cambios de escala).
+
+
+A) PARAMETROS DE DETECCION Y TRACKING LK
+
+A.1) max_corners = 300  (detect_features y extract_trajectory)
+- Funcion: cantidad maxima de features Shi-Tomasi a detectar por frame.
+- Eleccion: compromiso entre robustez y costo computacional. Con menos puntos cae la estabilidad; con muchos puntos crece tiempo y aparecen mas outliers.
+- Impacto relativo: ALTO.
+
+A.2) qualityLevel = 0.01  (goodFeaturesToTrack)
+- Funcion: umbral minimo de calidad de esquina.
+- Eleccion: valor clasico que retiene esquinas utiles sin saturar con puntos debiles.
+- Impacto relativo: MEDIO-ALTO.
+
+A.3) minDistance = 8  (goodFeaturesToTrack)
+- Funcion: separacion minima entre features.
+- Eleccion: evita concentrar puntos en la misma textura y mejora cobertura espacial.
+- Impacto relativo: MEDIO.
+
+A.4) blockSize = 7  (goodFeaturesToTrack)
+- Funcion: tamano de vecindad para evaluar estructura local de esquina.
+- Eleccion: 7 da estabilidad en escena urbana sin perder detalle fino.
+- Impacto relativo: MEDIO.
+
+A.5) radius = 5  (lucas_kanade)
+- Funcion: radio de ventana LK; patch = 11x11.
+- Eleccion: suficientemente grande para promediar ruido de vibracion, pero no tan grande como para mezclar movimientos de regiones distintas.
+- Impacto relativo: ALTO.
+
+A.6) ksize = 3 en Sobel  (lucas_kanade)
+- Funcion: derivadas espaciales Ix, Iy.
+- Eleccion: filtro pequeno y estandar para gradiente local.
+- Impacto relativo: MEDIO.
+
+A.7) det(normal) > 1e-3  (lucas_kanade)
+- Funcion: descarta sistemas mal condicionados (problema de apertura/textura insuficiente).
+- Eleccion: umbral conservador para evitar flujos numericamente inestables.
+- Impacto relativo: ALTO.
+
+A.8) ||flow|| <= 20 pix/frame  (lucas_kanade)
+- Funcion: elimina desplazamientos imposibles para el paso temporal entre frames.
+- Eleccion: consistente con fps del video y movimiento esperado de camara.
+- Impacto relativo: ALTO.
+
+A.9) robust_mask con MAD (factor 3*1.4826 y piso 2.5)
+- Funcion: separa inliers/outliers entre vectores de flujo en cada frame.
+- Eleccion: MAD por robustez ante colas pesadas; piso 2.5 evita sobre-filtrar cuando la dispersion real es pequena.
+- Impacto relativo: MUY ALTO.
+
+A.10) minimo de inliers para aceptar frame LK: mask.sum() >= 8
+- Funcion: exige soporte estadistico minimo para usar flujo y escala.
+- Eleccion: menos de 8 vuelve fragil la mediana de flujo y la escala radial.
+- Impacto relativo: ALTO.
+
+A.11) redeteccion de puntos si len(points) < 25
+- Funcion: recupera tracking cuando se pierden features.
+- Eleccion: umbral practico para no continuar con una nube empobrecida.
+- Impacto relativo: ALTO.
+
+
+B) PARAMETROS DE REGISTRO AL MAPA (ORB + HOMOGRAFIA)
+
+B.1) ORB nfeatures = 2500
+- Funcion: limite de keypoints ORB por imagen.
+- Eleccion: alto para escenas complejas y texturas heterogeneas del mapa urbano.
+- Impacto relativo: ALTO.
+
+B.2) ORB fastThreshold = 8
+- Funcion: sensibilidad de deteccion FAST en ORB.
+- Eleccion: bajo-moderado para no perder puntos en zonas de bajo contraste.
+- Impacto relativo: MEDIO-ALTO.
+
+B.3) Lowe ratio = 0.72
+- Funcion: filtra matches ambiguos en KNN.
+- Eleccion: mas estricto que 0.75 para reducir falsos positivos con ruido de video.
+- Impacto relativo: MUY ALTO.
+
+B.4) min matches buenos = 8
+- Funcion: minimo para intentar homografia.
+- Eleccion: valor minimo razonable para no resolver con geometria subdeterminada.
+- Impacto relativo: ALTO.
+
+B.5) RANSAC reproj threshold = 5 pix
+- Funcion: tolerancia de error reproyectado para inliers de homografia.
+- Eleccion: 5 pix absorbe ruido moderado sin aceptar geometria incoherente.
+- Impacto relativo: MUY ALTO.
+
+B.6) inliers homografia >= 8 para aceptar registro
+- Funcion: criterio de confianza del registro frame-mapa.
+- Eleccion: evita usar homografias inestables con pocos apoyos.
+- Impacto relativo: MUY ALTO.
+
+B.7) registration_step = 5
+- Funcion: cada cuantos frames se intenta actualizar homografia.
+- Eleccion: balance entre costo y estabilidad temporal; usar cada frame puede introducir jitter extra.
+- Impacto relativo: MEDIO-ALTO.
+
+
+C) PARAMETROS DE POSTPROCESO XY (LIMPIEZA DE TRAYECTORIA)
+
+C.1) jump_threshold = 55
+- Funcion: marca saltos bruscos entre frames.
+- Eleccion: calibrado para separar desplazamiento fisico plausible de saltos espurios de registro.
+- Impacto relativo: ALTO.
+
+C.2) min_inliers = 18 en filtros de baja confianza
+- Funcion: condiciona descarte cuando hay saltos y poca confianza de mapa.
+- Eleccion: por debajo de ~18 inliers, el registro observado fue notablemente inestable.
+- Impacto relativo: MUY ALTO.
+
+C.3) dynamic_limit = median(jumps) + 4*1.4826*MAD
+- Funcion: umbral adaptativo para grandes cambios de posicion.
+- Eleccion: robusto a distribuciones no gaussianas de saltos.
+- Impacto relativo: ALTO.
+
+C.4) detector de pico local (left>35, right>35, bridge<25)
+- Funcion: detecta patron salto-retorno en 1 frame.
+- Eleccion: umbrales empiricos para eliminar dientes aislados sin borrar curvaturas reales.
+- Impacto relativo: MEDIO-ALTO.
+
+C.5) filtro mediano 2 pasadas (ventana 7)
+- Funcion: elimina impulsos residuales manteniendo bordes de trayectoria.
+- Eleccion: mediana es robusta ante outliers puntuales.
+- Impacto relativo: ALTO.
+
+C.6) suavizado convolutivo [1,2,3,4,3,2,1]
+- Funcion: suavizado final de alta frecuencia en XY.
+- Eleccion: kernel simetrico suave, con menos sesgo de fase.
+- Impacto relativo: MEDIO.
+
+
+D) PARAMETROS DE POSTPROCESO Z(t)
+
+D.1) clip de escala por frame: [0.992, 1.008]
+- Funcion: limita variaciones frame a frame a rango fisico razonable.
+- Eleccion: evita que errores de LK exploten al acumularse multiplicativamente.
+- Impacto relativo: MUY ALTO.
+
+D.2) MAD en log-escala con threshold = 2.5*spread
+- Funcion: deteccion robusta de muestras de escala anomala.
+- Eleccion: log-escala linealiza acumulacion multiplicativa; 2.5 da filtro firme.
+- Impacto relativo: MUY ALTO.
+
+D.3) error_cut = percentil 70 de lk_error
+- Funcion: exige error alto para penalizar escalas sospechosas.
+- Eleccion: percentil 70 separa zona central de errores de cola.
+- Impacto relativo: ALTO.
+
+D.4) valid_points < 20 como criterio de ruido
+- Funcion: si hay pocos puntos de flujo, la escala del frame es menos confiable.
+- Eleccion: umbral empirico alineado con estabilidad observada.
+- Impacto relativo: ALTO.
+
+D.5) suavizado temporal window = 21
+- Funcion: reduce jitter en Z(t).
+- Eleccion: ventana relativamente amplia para suprimir ruido de alta frecuencia de gimbal/viento.
+- Impacto relativo: ALTO.
+
+D.6) detrend lineal en log(z)
+- Funcion: remueve deriva lenta acumulada, conservando variacion local.
+- Eleccion: mejora interpretabilidad de la curva sin destruir dinamica de corto plazo.
+- Impacto relativo: MEDIO-ALTO.
+
+
+E) IMPORTANCIA RELATIVA GLOBAL (RESUMEN)
+Para este TP, los parametros mas criticos fueron:
+1) Filtros robustos de outliers (MAD, inliers minimos, umbrales de salto).
+2) Criterios de aceptacion de homografia (Lowe ratio, RANSAC, inliers minimos).
+3) Recorte y suavizado de escala frame a frame en log-espacio.
+
+Los parametros de "detalle fino" (por ejemplo ksize Sobel o estilo exacto del kernel de suavizado) afectan menos que los tres grupos anteriores.
+
+
+F) CRITERIO METODOLOGICO DE AJUSTE USADO
+Los valores se ajustaron con enfoque ingenieril iterativo:
+- Primero: garantizar estabilidad numerica (descartar casos mal condicionados).
+- Segundo: asegurar consistencia geometrica (matching + homografia robusta).
+- Tercero: limpiar ruido cinematico (saltos XY y jitter Z) sin borrar dinamica real.
+
+En este problema particular, la robustez frente a ruido y registros fallidos fue mas importante que la precision local de un frame aislado.

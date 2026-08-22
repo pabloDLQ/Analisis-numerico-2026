@@ -182,30 +182,135 @@ def extract_trajectory(video_path=DEFAULT_VIDEO, map_path=DEFAULT_MAP, max_corne
     return Trajectory(*[data[:, i].astype(dtype) for i, dtype in enumerate([int, float, float, float, float, float, float, float, int, float, int, int])])
 
 
+def _fix_xy_outliers(trajectory: Trajectory, jump_threshold: float = 55.0, min_inliers: int = 18):
+    x = trajectory.x_map.astype(float).copy()
+    y = trajectory.y_map.astype(float).copy()
+    inliers = trajectory.map_inliers.astype(int)
+
+    jumps = np.hypot(np.diff(x), np.diff(y))
+    bad = np.zeros(len(x), dtype=bool)
+
+    # Descarta saltos bruscos en frames de baja confianza de registro.
+    if len(jumps) > 0:
+        conflict = np.where((jumps > jump_threshold) & (inliers[1:] < min_inliers))[0] + 1
+        bad[conflict] = True
+
+    # Filtra cambios de posicion anormalmente altos para estabilizar tramos ruidosos.
+    if len(jumps) > 10:
+        base = float(np.median(jumps))
+        mad = float(np.median(np.abs(jumps - base)))
+        dynamic_limit = max(jump_threshold, base + 4.0 * 1.4826 * mad)
+        high = np.where(jumps > dynamic_limit)[0] + 1
+        bad[high] = True
+
+    # Limpia picos aislados (salto y retorno inmediato).
+    for i in range(1, len(x) - 1):
+        left = np.hypot(x[i] - x[i - 1], y[i] - y[i - 1])
+        right = np.hypot(x[i + 1] - x[i], y[i + 1] - y[i])
+        bridge = np.hypot(x[i + 1] - x[i - 1], y[i + 1] - y[i - 1])
+        if left > 35.0 and right > 35.0 and bridge < 25.0:
+            bad[i] = True
+
+    # Si un frame tiene baja confianza y esta rodeado de saltos, se descarta.
+    for i in range(1, len(x) - 1):
+        left = np.hypot(x[i] - x[i - 1], y[i] - y[i - 1])
+        right = np.hypot(x[i + 1] - x[i], y[i + 1] - y[i])
+        if inliers[i] < min_inliers and (left > 35.0 or right > 35.0):
+            bad[i] = True
+
+    bad[0] = False
+    bad[-1] = False
+    good = ~bad
+    if good.sum() < 2:
+        return x, y
+
+    idx = np.arange(len(x), dtype=float)
+    x = np.interp(idx, idx[good], x[good])
+    y = np.interp(idx, idx[good], y[good])
+
+    # Filtro mediano + suavizado para eliminar dientes causados por homografias inestables.
+    for _ in range(2):
+        x_pad = np.pad(x, (3, 3), mode="edge")
+        y_pad = np.pad(y, (3, 3), mode="edge")
+        x = np.array([np.median(x_pad[i:i + 7]) for i in range(len(x))], dtype=float)
+        y = np.array([np.median(y_pad[i:i + 7]) for i in range(len(y))], dtype=float)
+
+    kernel = np.array([1, 2, 3, 4, 3, 2, 1], dtype=float)
+    kernel /= kernel.sum()
+    x_pad = np.pad(x, (3, 3), mode="edge")
+    y_pad = np.pad(y, (3, 3), mode="edge")
+    x = np.convolve(x_pad, kernel, mode="valid")
+    y = np.convolve(y_pad, kernel, mode="valid")
+    return x, y
+
+
+def _rebuild_relative_scale(trajectory: Trajectory):
+    steps = np.clip(trajectory.scale_step.astype(float).copy(), 0.992, 1.008)
+    errors = trajectory.lk_error.astype(float)
+    valid_points = trajectory.valid_points.astype(int)
+
+    log_steps = np.log(steps)
+    core = log_steps[1:] if len(log_steps) > 1 else log_steps
+    median = float(np.median(core))
+    mad = float(np.median(np.abs(core - median)))
+    spread = max(1e-5, 1.4826 * mad)
+    threshold = 2.5 * spread
+    error_cut = float(np.percentile(errors[np.isfinite(errors)], 70))
+
+    noisy = ((np.abs(log_steps - median) > threshold) & (errors >= error_cut)) | (valid_points < 20)
+    log_steps[noisy] = median
+
+    log_steps = np.clip(log_steps, median - threshold, median + threshold)
+
+    window = 21
+    kernel = np.ones(window, dtype=float) / window
+    log_smoothed = np.convolve(log_steps, kernel, mode="same")
+    log_smoothed[0] = 0.0
+
+    z = np.exp(np.cumsum(log_smoothed))
+    z /= z[0]
+
+    # Elimina deriva de baja frecuencia sin alterar las variaciones locales.
+    log_z = np.log(z)
+    drift = np.linspace(log_z[0], log_z[-1], len(log_z))
+    z = np.exp(log_z - drift + log_z[0])
+    z /= z[0]
+    return z
+
+
+def postprocess_trajectory(trajectory: Trajectory) -> Trajectory:
+    x_fixed, y_fixed = _fix_xy_outliers(trajectory)
+    z_fixed = _rebuild_relative_scale(trajectory)
+    return Trajectory(
+        frame=trajectory.frame,
+        time_s=trajectory.time_s,
+        x_map=x_fixed,
+        y_map=y_fixed,
+        z=z_fixed,
+        u=trajectory.u,
+        v=trajectory.v,
+        scale_step=trajectory.scale_step,
+        valid_points=trajectory.valid_points,
+        lk_error=trajectory.lk_error,
+        map_inliers=trajectory.map_inliers,
+        registered=trajectory.registered,
+    )
+
+
 def save_results(trajectory, map_path=DEFAULT_MAP, output_dir=DEFAULT_OUTPUT):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    map_image = cv2.imread(str(map_path))
-    if map_image is None:
-        raise FileNotFoundError(f"No se pudo abrir el mapa: {map_path}")
     csv_path = output_dir / "trayectoria_mapa.csv"
     with csv_path.open("w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerow(["frame", "tiempo_s", "X_mapa_px", "Y_mapa_px", "Z_relativa", "u_LK", "v_LK", "escala_frame", "puntos_validos", "error_LK", "inliers_mapa", "registrado"])
         writer.writerows(zip(trajectory.frame, trajectory.time_s, trajectory.x_map, trajectory.y_map, trajectory.z, trajectory.u, trajectory.v, trajectory.scale_step, trajectory.valid_points, trajectory.lk_error, trajectory.map_inliers, trajectory.registered))
-    overlay = map_image.copy()
-    points = np.column_stack((trajectory.x_map, trajectory.y_map)).astype(np.int32)
-    for first, second in zip(points[:-1], points[1:]):
-        if np.all(first >= 0) and np.all(second >= 0):
-            cv2.line(overlay, tuple(first), tuple(second), (0, 80, 255), 8, cv2.LINE_AA)
-    cv2.circle(overlay, tuple(points[0]), 24, (0, 210, 0), -1)
-    cv2.circle(overlay, tuple(points[-1]), 24, (0, 0, 255), 5)
-    cv2.imwrite(str(output_dir / "trayectoria_sobre_mapa.png"), overlay)
+    y_cartesian = -trajectory.y_map
     figure, axis = plt.subplots(figsize=(8, 6))
-    axis.plot(trajectory.x_map, trajectory.y_map, color="#e8590c")
+    axis.plot(trajectory.x_map, y_cartesian, color="#e8590c")
     axis.set_aspect("equal")
-    axis.set_title("Trayectoria X-Y sobre el mapa satelital")
-    axis.set_xlabel("X en mapa (pixeles)"); axis.set_ylabel("Y en mapa (pixeles)"); axis.grid(alpha=0.25)
+    axis.set_title("Trayectoria X-Y sobre el mapa satelital (eje Y cartesiano)")
+    axis.set_xlabel("X en mapa (pixeles)"); axis.set_ylabel("Y cartesiana (pixeles)"); axis.grid(alpha=0.25)
     figure.tight_layout(); figure.savefig(output_dir / "trayectoria_xy_mapa.png", dpi=150); plt.close(figure)
     figure, axis = plt.subplots(figsize=(8, 4.5))
     axis.plot(trajectory.time_s, trajectory.z, color="#2b8a3e")
@@ -223,6 +328,7 @@ def main():
     parser.add_argument("--paso-registro", type=int, default=5)
     args = parser.parse_args()
     trajectory = extract_trajectory(args.video, args.mapa, registration_step=args.paso_registro)
+    trajectory = postprocess_trajectory(trajectory)
     csv_path = save_results(trajectory, args.mapa, args.salida)
     print(f"Frames procesados: {len(trajectory.frame)}")
     print(f"Frames con registro de mapa: {int(trajectory.registered.sum())}")
