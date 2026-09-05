@@ -1,0 +1,136 @@
+CRITERIOS DE ELECCION DE PARAMETROS COMPUTACIONALES
+====================================================
+
+Problema considerado
+--------------------
+El programa estima la trayectoria de un dron a partir de un video de 600x600
+pixeles. Se siguen puntos con Lucas-Kanade, se calcula el flujo optico entre
+frames y se acumula el movimiento para reconstruir la trayectoria y el zoom
+relativo.
+
+Los valores actuales buscan un equilibrio entre precision, estabilidad frente
+al movimiento y costo computacional.
+
+winSize = (21, 21)
+-------------------
+Funcion: define el tamano de la ventana local usada para seguir cada punto.
+
+Criterio: una ventana de 21x21 contiene suficiente textura para estimar el
+movimiento sin abarcar una region excesivamente grande.
+
+Importancia relativa: ALTA. Una ventana muy pequena es sensible al ruido y a
+zonas poco texturadas; una muy grande mezcla movimientos diferentes y puede
+perder detalles locales.
+
+Valores para probar: (15, 15) si se necesita mas detalle local; (31, 31) o
+(41, 41) si el movimiento es rapido o la imagen tiene poco contraste.
+
+maxLevel = 3
+------------
+Funcion: indica la cantidad maxima de niveles de la piramide de imagen usada
+por Lucas-Kanade.
+
+Criterio: tres niveles permiten detectar desplazamientos moderados entre frames
+sin aumentar demasiado el tiempo de procesamiento.
+
+Importancia relativa: ALTA. Es especialmente importante cuando el dron tiene
+movimientos rapidos o cuando el cambio aparente de escala es considerable.
+
+Valores para probar: 2 para reducir el costo si el movimiento es pequeno; 4 o
+5 si hay desplazamientos grandes entre frames.
+
+criteria = (EPS | COUNT, 30, 0.01)
+----------------------------------
+Funcion: controla la detencion iterativa del calculo de Lucas-Kanade. El metodo
+termina al alcanzar 30 iteraciones o cuando el cambio es menor que 0.01.
+
+Criterio: combina un limite de iteraciones con una tolerancia de convergencia,
+evita tanto detenerse prematuramente como gastar calculo innecesario.
+
+Importancia relativa: MEDIA-ALTA. Afecta la precision y el tiempo, pero suele
+ser menos determinante que winSize y maxLevel si el seguimiento es estable.
+
+Valores para probar: (EPS | COUNT, 15, 0.03) para acelerar; (EPS | COUNT, 50,
+0.005) para buscar mayor precision en escenas dificiles.
+
+qualityLevel = 0.01
+--------------------
+Funcion: establece la calidad minima de las esquinas detectadas por
+cv2.goodFeaturesToTrack, en relacion con la mejor esquina encontrada.
+
+Criterio: 0.01 conserva puntos con contraste suficiente para que sus gradientes
+espaciales permitan resolver el sistema de Lucas-Kanade.
+
+Importancia relativa: ALTA. Un valor demasiado bajo incorpora puntos debiles y
+ruidosos; uno demasiado alto puede dejar muy pocos puntos para el seguimiento.
+
+Valores para probar: 0.005 para conservar mas puntos; 0.02 o 0.03 para usar
+solo esquinas mas confiables y reducir ruido.
+
+minDistance = 8
+---------------
+Funcion: fija la distancia minima entre dos puntos de interes seleccionados.
+
+Criterio: ocho pixeles distribuye los puntos por el frame y evita concentrarlos
+en una sola esquina o detalle.
+
+Importancia relativa: MEDIA. Influye en la cobertura espacial y en la robustez
+del flujo, aunque tiene menor impacto individual que la calidad de los puntos.
+
+Valores para probar: 4 o 6 para aumentar la cantidad de puntos; 12 o 16 para
+separarlos mas y obtener una distribucion mas uniforme.
+
+blockSize = 7
+-------------
+Funcion: define el tamano de la vecindad usada para evaluar la calidad local de
+cada esquina.
+
+Criterio: un bloque de 7x7 ofrece una estimacion local estable en el video sin
+suavizar excesivamente detalles utiles.
+
+Importancia relativa: MEDIA. Modifica que estructuras se consideran puntos
+seguibles y debe ser coherente con winSize.
+
+Valores para probar: 5 para detectar detalles pequenos; 9 o 11 para hacer la
+seleccion mas estable frente al ruido.
+
+maxCorners = 500
+----------------
+Funcion: limita la cantidad maxima de puntos detectados en cada frame.
+
+Criterio: 500 puntos proporcionan redundancia suficiente para usar una mediana
+del movimiento y descartar correspondencias anomalas sin un costo excesivo.
+
+Importancia relativa: MEDIA-ALTA. Mas puntos aumentan la robustez, pero tambien
+incrementan el costo de Lucas-Kanade y pueden incluir mediciones poco utiles.
+
+Valores para probar: 200 o 300 para acelerar; 800 o 1000 si se necesita mas
+redundancia espacial y el tiempo de ejecucion no es una restriccion.
+
+min_puntos_validos = 12
+-----------------------
+Funcion: establece el minimo de puntos validos requerido para aceptar el flujo
+de un frame y actualizar la trayectoria y el zoom.
+
+Criterio: doce puntos permiten considerar confiable una estimacion colectiva y
+evitan que unos pocos puntos incorrectos produzcan saltos.
+
+Importancia relativa: ALTA. Determina cuando una medicion se acepta o se
+reemplaza mediante interpolacion cubica.
+
+Valores para probar: 6 u 8 si hay pocos puntos validos; 20 o 30 para exigir
+mayor confianza antes de actualizar la trayectoria.
+
+Resumen de prioridades
+----------------------
+1. winSize, maxLevel y qualityLevel son los parametros mas influyentes en la
+   calidad del seguimiento.
+2. min_puntos_validos y maxCorners determinan la confiabilidad estadistica del
+   movimiento estimado.
+3. criteria ajusta la precision y el costo de cada seguimiento.
+4. minDistance y blockSize controlan la distribucion y la calidad espacial de
+   los puntos detectados.
+
+Los valores no representan unidades fisicas universales: deben revisarse si
+cambia la resolucion del video, la velocidad del dron, la textura de la escena
+o la cantidad de desenfoque entre frames.

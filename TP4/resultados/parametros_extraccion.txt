@@ -1,0 +1,3 @@
+zoom inicial mapa/frame: 1.000148
+inliers del registro inicial: 77
+parametros: {'winSize': (21, 21), 'maxLevel': 3, 'criteria': (3, 30, 0.01), 'qualityLevel': 0.01, 'minDistance': 8, 'blockSize': 7, 'maxCorners': 500, 'min_puntos_validos': 12}
