@@ -27,7 +27,7 @@ PARAMETROS = {
 ROOT = Path(__file__).resolve().parents[1]
 VIDEO_DEFAULT = ROOT / "data" / "vuelo_dron.mp4"
 MAPA_DEFAULT = ROOT / "data" / "mapa_satelital_completo.jpg"
-SALIDA_DEFAULT = ROOT / "resultados"
+SALIDA_DEFAULT = ROOT / "resultados" / "resultados_ej1"
 
 
 # -----------------------------------------------------------------------------
