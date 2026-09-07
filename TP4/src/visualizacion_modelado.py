@@ -1,4 +1,4 @@
-"""Comparacion grafica de la trayectoria original y sus reconstrucciones."""
+"""Genera las comparaciones graficas del modelado de la trayectoria."""
 
 from pathlib import Path
 
@@ -47,7 +47,7 @@ def graficar_comparaciones(
         raise FileNotFoundError(f"No se pudo abrir el mapa: {ruta_mapa}")
     mapa_rgb = cv2.cvtColor(mapa_bgr, cv2.COLOR_BGR2RGB)
 
-    # -- GRAFICO 1: MAPA 2D --
+        # Mapa 2D: permite comparar el recorrido completo sobre la referencia.
     figura, eje = plt.subplots(figsize=(10, 7))
     eje.imshow(mapa_rgb)
     eje.plot(x, y, color="white", linewidth=1.2, label="Trayectoria con ruido")
@@ -68,7 +68,7 @@ def graficar_comparaciones(
     figura.savefig(directorio_salida / "comparacion_mapa_2d.png", dpi=150)
     plt.close(figura)
 
-    # -- GRAFICO 2: PLANO CARTESIANO --
+    # Plano local: elimina el offset del mapa y cambia el sentido del eje Y.
     x_inicial = x[0]
     y_inicial = y[0]
     x_local = x - x_inicial
@@ -120,7 +120,7 @@ def graficar_comparaciones(
     figura.savefig(directorio_salida / "comparacion_plano_cartesiano.png", dpi=150)
     plt.close(figura)
 
-    # -- GRAFICO 3: ALTITUD --
+    # Perfil vertical: muestra donde el ajuste global y el spline se separan.
     figura, eje = plt.subplots(figsize=(10, 5.5))
     eje.plot(t, z, color="black", linewidth=1.2, label="Trayectoria con ruido")
     eje.plot(
@@ -144,7 +144,7 @@ def graficar_comparaciones(
 
 
 def main():
-    """Calcula el modelado y genera las figuras comparativas."""
+    """Calcula ambos modelos y guarda sus comparaciones graficas."""
     datos = cargar_datos_y_nodos(RUTA_CSV, SALTO_NODOS)
     t, x, y, z, t_nodos, x_nodos, y_nodos, z_nodos = datos
     x_global = interpolar_global(t, t_nodos, x_nodos, GRADO_POLINOMIO)

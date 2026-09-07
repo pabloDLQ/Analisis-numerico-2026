@@ -1,24 +1,25 @@
-"""Carga de datos y seleccion de nodos para la trayectoria del dron."""
+"""Prepara los datos y reconstruye la trayectoria con dos modelos."""
 
 from pathlib import Path
 
 import numpy as np
 
 
-# =========================================
-# PARAMETROS CONFIGURABLES
-# =========================================
+# ---------------------------------------------------------------------
+# Configuracion del modelado
+# ---------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parents[1]
 RUTA_CSV = ROOT / "resultados" / "resultados_ej1" / "trayectoria_dron.csv"
 SALTO_NODOS = 30
 GRADO_POLINOMIO = 16
+GRADO_GLOBAL = 5
 
 
-# =========================================
-# PASO 1: CARGA DE DATOS Y SELECCION DE NODOS
-# =========================================
+# ---------------------------------------------------------------------
+# Carga y seleccion de nodos
+# ---------------------------------------------------------------------
 def cargar_datos_y_nodos(ruta_csv, salto_nodos):
-    """Carga la trayectoria completa y selecciona sus nodos de interpolacion."""
+    """Carga la trayectoria y toma un nodo cada salto_nodos muestras."""
     if not isinstance(salto_nodos, (int, np.integer)) or salto_nodos <= 0:
         raise ValueError("salto_nodos debe ser un entero positivo")
 
@@ -46,11 +47,11 @@ def cargar_datos_y_nodos(ruta_csv, salto_nodos):
     return t, x, y, z, t_nodos, x_nodos, y_nodos, z_nodos
 
 
-# =========================================
-# PASO 2: METODO GLOBAL (AJUSTE POLINOMIAL)
-# =========================================
+# ---------------------------------------------------------------------
+# Modelado global
+# ---------------------------------------------------------------------
 def interpolar_global(t, t_nodos, var_nodos, grado):
-    """Ajusta un polinomio global y lo evalua sobre todos los tiempos."""
+    """Evalua un polinomio global y corrige los extremos para cerrar el ajuste."""
     coeficientes = np.polyfit(t_nodos, var_nodos, grado)
     var_global = np.polyval(coeficientes, t)
     error_ini = var_nodos[0] - var_global[0]
@@ -60,11 +61,11 @@ def interpolar_global(t, t_nodos, var_nodos, grado):
     return var_global + correccion
 
 
-# =========================================
-# PASO 3: METODO LOCAL (SPLINE CUBICO NATURAL)
-# =========================================
+# ---------------------------------------------------------------------
+# Modelado local
+# ---------------------------------------------------------------------
 def spline_cubico_natural(t, t_nodos, var_nodos):
-    """Evalua un spline cubico natural construido desde cero."""
+    """Evalua un spline cubico natural a partir de sus nodos temporales."""
     t = np.asarray(t, dtype=float)
     t_nodos = np.asarray(t_nodos, dtype=float)
     var_nodos = np.asarray(var_nodos, dtype=float)
@@ -76,7 +77,7 @@ def spline_cubico_natural(t, t_nodos, var_nodos):
     if not np.all(np.isfinite(t_nodos)) or not np.all(np.isfinite(var_nodos)):
         raise ValueError("Los nodos deben contener valores finitos")
 
-    # Calcula la longitud de cada tramo y exige tiempos estrictamente crecientes.
+    # Sin tiempos crecientes, los tramos no tienen una parametrizacion valida.
     h = np.diff(t_nodos)
     if np.any(h <= 0):
         raise ValueError("Los tiempos de los nodos deben ser estrictamente crecientes")
@@ -85,11 +86,11 @@ def spline_cubico_natural(t, t_nodos, var_nodos):
     sistema = np.zeros((cantidad_nodos, cantidad_nodos), dtype=float)
     termino_independiente = np.zeros(cantidad_nodos, dtype=float)
 
-    # Impone las condiciones naturales: derivada segunda nula en ambos extremos.
+    # Spline natural: curvatura nula en los dos extremos.
     sistema[0, 0] = 1.0
     sistema[-1, -1] = 1.0
 
-    # Arma la matriz tridiagonal y el segundo miembro en los nodos interiores.
+    # La matriz tridiagonal concentra la curvatura en los nodos interiores.
     pendientes = np.diff(var_nodos) / h
     for indice in range(1, cantidad_nodos - 1):
         sistema[indice, indice - 1] = h[indice - 1]
@@ -99,11 +100,11 @@ def spline_cubico_natural(t, t_nodos, var_nodos):
             pendientes[indice] - pendientes[indice - 1]
         )
 
-    # Resuelve las derivadas segundas nodales del spline.
+    # Estas son las derivadas segundas que necesita la formula por tramo.
     derivadas_segundas = np.linalg.solve(sistema, termino_independiente)
     valores = np.empty_like(t, dtype=float)
 
-    # Evalua la formula cubica correspondiente en cada tramo temporal.
+    # Cada muestra cae en un tramo y se evalua con la formula cubica local.
     valores[:] = np.nan
     for indice in range(cantidad_nodos - 1):
         if indice == cantidad_nodos - 2:
@@ -129,15 +130,8 @@ def spline_cubico_natural(t, t_nodos, var_nodos):
     return valores
 
 
-# =========================================
-# EJECUCION DEL MODELADO
-# =========================================
-if __name__ == "__main__":
-    # Configuracion del experimento: maxima suavidad, un nodo cada 2 segundos.
-    SALTO_NODOS = 30
-    GRADO_GLOBAL = 5
-    RUTA_CSV = ROOT / "resultados" / "resultados_ej1" / "trayectoria_dron.csv"
-
+def ejecutar_modelado():
+    """Calcula los ajustes global y local para la trayectoria completa."""
     resultado = cargar_datos_y_nodos(RUTA_CSV, SALTO_NODOS)
     t, _, _, _, t_nodos, x_nodos, y_nodos, z_nodos = resultado
     x_global = interpolar_global(t, t_nodos, x_nodos, GRADO_GLOBAL)
@@ -154,3 +148,7 @@ if __name__ == "__main__":
     print(f"Curvas spline calculadas: {len(x_spline)}, {len(y_spline)}, {len(z_spline)}")
     print(f"Primer frame: t = {t_nodos[0]}")
     print(f"Ultimo frame: t = {t_nodos[-1]}")
+
+
+if __name__ == "__main__":
+    ejecutar_modelado()

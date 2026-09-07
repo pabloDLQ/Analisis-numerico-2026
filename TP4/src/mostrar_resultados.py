@@ -1,4 +1,4 @@
-"""Exportacion y visualizacion de los resultados de la trayectoria."""
+"""Exporta la trayectoria y las metricas que produce la extraccion."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import numpy as np
 
 
 def mostrar_resultados(data, mapa, salida, zoom_inicial, inliers_inicial, parametros):
-    """Guarda el CSV y las graficas obtenidas por el pipeline."""
+    """Guarda el CSV, las graficas y los parametros del procesamiento."""
     salida = Path(salida)
     salida.mkdir(parents=True, exist_ok=True)
     data = np.asarray(data, dtype=float)
@@ -44,7 +44,7 @@ def mostrar_resultados(data, mapa, salida, zoom_inicial, inliers_inicial, parame
     figure.savefig(salida / "trayectoria_mapa.png", dpi=150)
     plt.close(figure)
 
-    # Se representa la trayectoria en coordenadas cartesianas locales.
+    # Cambiamos el eje vertical para leer el recorrido como un plano cartesiano.
     x_cartesian = data[:, 2] - data[0, 2]
     y_cartesian = -(data[:, 3] - data[0, 3])
     figure, axis = plt.subplots(figsize=(8, 6))
@@ -110,7 +110,7 @@ def mostrar_resultados(data, mapa, salida, zoom_inicial, inliers_inicial, parame
 
 
 def calcular_rapidez_instantanea(data):
-    """Calcula la rapidez a partir de la trayectoria mediante diferencias."""
+    """Obtiene la rapidez escalar a partir de diferencias temporales."""
     time = data[:, 1]
     velocity_x = np.gradient(data[:, 2], time)
     velocity_y = np.gradient(data[:, 3], time)

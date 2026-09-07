@@ -10,9 +10,9 @@ import numpy as np
 from .mostrar_resultados import mostrar_resultados
 
 
-# -----------------------------------------------------------------------------
-# Parametros computacionales editables del algoritmo.
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Configuracion de la extraccion
+# ---------------------------------------------------------------------
 PARAMETROS = {
     "winSize": (21, 21),
     "maxLevel": 3,
@@ -30,9 +30,9 @@ MAPA_DEFAULT = ROOT / "data" / "mapa_satelital_completo.jpg"
 SALIDA_DEFAULT = ROOT / "resultados" / "resultados_ej1"
 
 
-# -----------------------------------------------------------------------------
-# Deteccion de puntos con textura suficiente para resolver Lucas-Kanade.
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Utilidades de seguimiento
+# ---------------------------------------------------------------------
 def detectar_puntos(gray: np.ndarray) -> np.ndarray:
     puntos = cv2.goodFeaturesToTrack(
         gray,
@@ -46,9 +46,6 @@ def detectar_puntos(gray: np.ndarray) -> np.ndarray:
     return puntos.reshape(-1, 2).astype(np.float32)
 
 
-# -----------------------------------------------------------------------------
-# Seguimiento de puntos mediante el algoritmo piramidal de Lucas-Kanade.
-# -----------------------------------------------------------------------------
 def seguir_lucas_kanade(previous, current, points):
     if len(points) == 0:
         return points, points, np.empty((0,), dtype=bool), float("inf")
@@ -73,7 +70,7 @@ def seguir_lucas_kanade(previous, current, points):
     valid &= np.isfinite(new_flat).all(axis=1)
     valid &= np.linalg.norm(displacement, axis=1) < 80.0
 
-    # MAD: conserva el movimiento dominante y descarta correspondencias anomales.
+    # El MAD deja afuera los puntos que no siguen el movimiento dominante.
     if valid.sum() >= 8:
         median_flow = np.median(displacement[valid], axis=0)
         distances = np.linalg.norm(displacement - median_flow, axis=1)
@@ -86,9 +83,6 @@ def seguir_lucas_kanade(previous, current, points):
     return points, new_flat, valid, error
 
 
-# -----------------------------------------------------------------------------
-# Estimacion del zoom relativo a partir de la expansion/contraccion de puntos.
-# -----------------------------------------------------------------------------
 def estimar_zoom_relativo(old_points, new_points) -> float:
     if len(old_points) < 4:
         return 1.0
@@ -102,9 +96,6 @@ def estimar_zoom_relativo(old_points, new_points) -> float:
     return float(np.median(ratios)) if len(ratios) else 1.0
 
 
-# -----------------------------------------------------------------------------
-# Interpolacion cubica local implementada.
-# -----------------------------------------------------------------------------
 def interpolar_cubica(values: np.ndarray, valid: np.ndarray) -> np.ndarray:
     result = np.asarray(values, dtype=float).copy()
     indexes = np.arange(len(result), dtype=float)
@@ -120,10 +111,9 @@ def interpolar_cubica(values: np.ndarray, valid: np.ndarray) -> np.ndarray:
     return result
 
 
-# -----------------------------------------------------------------------------
-# Cierre de la trayectoria: reparte linealmente el error final para que el
-# recorrido comience y termine exactamente en la misma coordenada del mapa.
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Correcciones de la trayectoria
+# ---------------------------------------------------------------------
 def cerrar_trayectoria(data: np.ndarray) -> np.ndarray:
     closed = data.copy()
     correction = closed[-1, 2:4] - closed[0, 2:4]
@@ -133,9 +123,6 @@ def cerrar_trayectoria(data: np.ndarray) -> np.ndarray:
     return closed
 
 
-# -----------------------------------------------------------------------------
-# Registro del frame 0 contra el mapa mediante caracteristicas de OpenCV.
-# -----------------------------------------------------------------------------
 def registrar_frame_inicial(frame_gray, mapa_gray):
     if hasattr(cv2, "SIFT_create"):
         detector = cv2.SIFT_create(nfeatures=5000)
@@ -163,19 +150,21 @@ def registrar_frame_inicial(frame_gray, mapa_gray):
     return homography, int(mask.sum())
 
 
-# -----------------------------------------------------------------------------
-# Escritura de CSV y generacion de las graficas solicitadas.
-# -----------------------------------------------------------------------------
 def guardar_resultados(rows, mapa, salida, zoom_inicial, inliers_inicial):
     return mostrar_resultados(
         rows, mapa, salida, zoom_inicial, inliers_inicial, PARAMETROS
     )
 
 
-# -----------------------------------------------------------------------------
-# Pipeline completo: carga, registro inicial, seguimiento y exportacion.
-# -----------------------------------------------------------------------------
-def ejecutar_extraccion(video_path=VIDEO_DEFAULT, mapa_path=MAPA_DEFAULT, salida=SALIDA_DEFAULT):
+# ---------------------------------------------------------------------
+# Pipeline de extraccion
+# ---------------------------------------------------------------------
+def ejecutar_extraccion(
+    video_path=VIDEO_DEFAULT,
+    mapa_path=MAPA_DEFAULT,
+    salida=SALIDA_DEFAULT,
+    etiqueta_resultados="Resultados",
+):
     mapa = cv2.imread(str(mapa_path), cv2.IMREAD_COLOR)
     capture = cv2.VideoCapture(str(video_path))
     if mapa is None:
@@ -207,7 +196,7 @@ def ejecutar_extraccion(video_path=VIDEO_DEFAULT, mapa_path=MAPA_DEFAULT, salida
     valid_rows = [True]
     frame_number = 0
 
-    # El flujo de la escena tiene signo opuesto al desplazamiento de la camara.
+    # El flujo de la escena avanza con signo opuesto al desplazamiento de la camara.
     while True:
         ok, frame = capture.read()
         if not ok:
@@ -247,11 +236,7 @@ def ejecutar_extraccion(video_path=VIDEO_DEFAULT, mapa_path=MAPA_DEFAULT, salida
         data[:, column] = interpolar_cubica(data[:, column], reliable_array)
     data = cerrar_trayectoria(data)
     csv_path = guardar_resultados(data, mapa, Path(salida), initial_zoom, initial_inliers)
-    print(f"Frames procesados: {len(data)}")
-    print(f"Inliers del registro inicial: {initial_inliers}")
-    print(f"Coordenada inicial en el mapa: ({data[0, 2]:.2f}, {data[0, 3]:.2f})")
-    print(f"Zoom inicial mapa/frame: {initial_zoom:.6f}")
-    print(f"Resultados: {csv_path.resolve()}")
+    print(f"{etiqueta_resultados}: {csv_path.resolve()}")
     return data
 
 

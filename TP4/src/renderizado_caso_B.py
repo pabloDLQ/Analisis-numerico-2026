@@ -1,4 +1,4 @@
-"""Renderizado del caso B con zoom constante y rapidez constante."""
+"""Genera el renderizado con zoom y rapidez espacial constantes."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ ZOOM_CONSTANTE = 1.0
 
 
 def cargar_trayectoria(ruta_csv: Path):
-    """Carga X e Y y las evalua mediante el spline cubico natural."""
+    """Carga los nodos y reconstruye las coordenadas X e Y con un spline."""
     t, _, _, _, t_nodos, x_nodos, y_nodos, _ = cargar_datos_y_nodos(
         ruta_csv, SALTO_NODOS
     )
@@ -50,7 +50,7 @@ def cargar_trayectoria(ruta_csv: Path):
 def remuestrear_posicion_rapidez_constante(
     t, t_nodos, x_nodos, y_nodos, cantidad_muestras_densas=10000
 ):
-    """Reparametriza la trayectoria para que su rapidez espacial sea constante."""
+    """Reparametriza X e Y para conservar una rapidez espacial constante."""
     t = np.asarray(t, dtype=float)
     if len(t) < 2 or not np.all(np.diff(t) > 0):
         raise ValueError("Se necesitan al menos dos tiempos estrictamente crecientes")
@@ -74,7 +74,7 @@ def remuestrear_posicion_rapidez_constante(
 
 
 def renderizar_caso_B(ruta_csv=RUTA_CSV, ruta_mapa=RUTA_MAPA, ruta_video=RUTA_VIDEO):
-    """Genera el video del caso B: Z(t)=1 y v(t)=v0."""
+    """Genera el video del caso B con Z(t)=1 y v(t)=v0."""
     if ZOOM_CONSTANTE != 1.0:
         raise ValueError("El caso B requiere ZOOM_CONSTANTE = 1.0")
 
@@ -126,10 +126,7 @@ def renderizar_caso_B(ruta_csv=RUTA_CSV, ruta_mapa=RUTA_MAPA, ruta_video=RUTA_VI
     if frame_count != len(t):
         raise RuntimeError(f"El video contiene {frame_count} frames; se esperaban {len(t)}")
 
-    print(f"Video generado: {ruta_video.resolve()}")
-    print(f"Frames: {frame_count} | Resolucion: {width}x{height} | FPS: {FPS_SALIDA:.1f}")
-    print(f"Zoom constante: Z = {ZOOM_CONSTANTE:.1f}")
-    print(f"Rapidez espacial constante: {velocidad_constante:.6f} pixeles/s")
+    print(f"Video del caso B generado: {ruta_video.resolve()}")
     return ruta_video
 
 

@@ -1,4 +1,4 @@
-"""Renderizado del caso A sobre el mapa satelital."""
+"""Construye el video del caso A sobre el mapa satelital."""
 
 from __future__ import annotations
 
@@ -15,9 +15,9 @@ from .modelado_trayectoria import (
 )
 
 
-# -----------------------------------------------------------------------------
-# Rutas y parametros editables del renderizado.
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Configuracion del renderizado
+# ---------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parents[1]
 RUTA_CSV = RUTA_CSV_MODELO
 RUTA_MAPA = ROOT / "data" / "mapa_satelital_completo.jpg"
@@ -29,9 +29,9 @@ ANCHO_PANEL = 600
 ALTO_PANEL = 600
 
 
-# -----------------------------------------------------------------------------
-# Carga la trayectoria modelada y el zoom del CSV de extraccion.
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Carga y referencia espacial
+# ---------------------------------------------------------------------
 def cargar_trayectoria_y_zoom(ruta_csv: Path):
     t, x, y, _, t_nodos, x_nodos, y_nodos, _ = cargar_datos_y_nodos(
         ruta_csv, SALTO_NODOS
@@ -58,9 +58,6 @@ def cargar_trayectoria_y_zoom(ruta_csv: Path):
     return t, x, y, x_spline, y_spline, zoom
 
 
-# -----------------------------------------------------------------------------
-# Obtiene la escala base del mapa a partir de la huella del frame 0 original.
-# -----------------------------------------------------------------------------
 def obtener_referencia_frame0(ruta_video: Path, mapa):
     video = cv2.VideoCapture(str(ruta_video))
     ok, frame0 = video.read()
@@ -96,10 +93,9 @@ def obtener_referencia_frame0(ruta_video: Path, mapa):
     return frame0, center, base_width, base_height
 
 
-# -----------------------------------------------------------------------------
-# Remuestrea el spline por longitud de arco para que el desplazamiento entre
-# frames sea uniforme y la simulacion tenga rapidez espacial constante.
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Parametrizacion de la trayectoria
+# ---------------------------------------------------------------------
 def remuestrear_velocidad_constante(t, x, y, zoom, t_nodos, x_nodos, y_nodos):
     t = np.asarray(t, dtype=float)
     x = np.asarray(x, dtype=float)
@@ -108,8 +104,7 @@ def remuestrear_velocidad_constante(t, x, y, zoom, t_nodos, x_nodos, y_nodos):
     if len(t) < 2 or not (len(t) == len(x) == len(y) == len(zoom)):
         raise ValueError("Las muestras temporales, espaciales y de zoom deben coincidir")
 
-    # La tabla densa reduce el error de cuerda entre frames y representa la
-    # longitud del spline, no la de los 750 puntos originales solamente.
+    # Una tabla densa mide la longitud del spline, no solo la cuerda entre muestras.
     t_denso = np.linspace(t[0], t[-1], max(10000, 100 * len(t)))
     x_denso = spline_cubico_natural(t_denso, t_nodos, x_nodos)
     y_denso = spline_cubico_natural(t_denso, t_nodos, y_nodos)
@@ -118,8 +113,7 @@ def remuestrear_velocidad_constante(t, x, y, zoom, t_nodos, x_nodos, y_nodos):
     if longitud[-1] <= 0.0:
         raise ValueError("La trayectoria no tiene longitud suficiente para renderizarse")
 
-    # La velocidad espacial se fija a partir de la longitud total y la
-    # duracion total. Cada instante recibe exactamente s(t) = v0 * (t - t0).
+    # Reparametrizamos por longitud de arco para imponer s(t) = v0 * (t - t0).
     velocidad_constante = longitud[-1] / (t[-1] - t[0])
     distancia_objetivo = velocidad_constante * (t - t[0])
     x_uniforme = np.interp(distancia_objetivo, longitud, x_denso)
@@ -128,9 +122,6 @@ def remuestrear_velocidad_constante(t, x, y, zoom, t_nodos, x_nodos, y_nodos):
     return x_uniforme, y_uniforme, zoom_uniforme, velocidad_constante
 
 
-# -----------------------------------------------------------------------------
-# Comprueba la condicion v(t) = v0 en las muestras discretas del video.
-# -----------------------------------------------------------------------------
 def validar_velocidad_constante(t, velocidad_constante):
     tiempos = np.asarray(t, dtype=float)
     longitudes_objetivo = velocidad_constante * (tiempos - tiempos[0])
@@ -140,9 +131,9 @@ def validar_velocidad_constante(t, velocidad_constante):
     return float(velocidad_constante)
 
 
-# -----------------------------------------------------------------------------
-# Utilidades de transformacion y dibujo de puntos en un panel de video.
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Utilidades de imagen
+# ---------------------------------------------------------------------
 def transformar_puntos(points, x0, y0, width, height, panel_width, panel_height):
     points = np.asarray(points, dtype=float)
     transformed = np.empty_like(points)
@@ -164,9 +155,9 @@ def transformar_puntos_globales(points, scale, offset_x, offset_y):
     return np.rint(transformed).astype(np.int32)
 
 
-# -----------------------------------------------------------------------------
-# Construye un frame unicamente con la simulacion local del dron.
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Construccion de frames
+# ---------------------------------------------------------------------
 def construir_frame(mapa, frame0, x, y, zoom, indice, base_width, base_height):
     if indice == 0:
         return frame0.copy()
@@ -184,9 +175,9 @@ def construir_frame(mapa, frame0, x, y, zoom, indice, base_width, base_height):
     return panel_local
 
 
-# -----------------------------------------------------------------------------
-# Genera el video MP4 completo y verifica que el archivo pueda reabrirse.
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Pipeline del caso A
+# ---------------------------------------------------------------------
 def renderizar_caso_A(ruta_csv=RUTA_CSV, ruta_mapa=RUTA_MAPA, ruta_video=RUTA_VIDEO):
     mapa = cv2.imread(str(ruta_mapa), cv2.IMREAD_COLOR)
     if mapa is None:
@@ -238,9 +229,7 @@ def renderizar_caso_A(ruta_csv=RUTA_CSV, ruta_mapa=RUTA_MAPA, ruta_video=RUTA_VI
         raise RuntimeError("El video generado tiene una resolucion inesperada")
     if frame_count != len(t):
         raise RuntimeError(f"El video contiene {frame_count} frames; se esperaban {len(t)}")
-    print(f"Video generado: {ruta_video.resolve()}")
-    print(f"Frames: {frame_count} | Resolucion: {width}x{height} | FPS: {FPS_SALIDA:.1f}")
-    print(f"Rapidez espacial constante: {velocidad_constante:.6f} pixeles/s")
+    print(f"Video del caso A generado: {ruta_video.resolve()}")
     return ruta_video
 
 
