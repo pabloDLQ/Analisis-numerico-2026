@@ -13,16 +13,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def mostrar_resultados(data, mapa, salida, zoom_inicial, inliers_inicial, parametros):
+def mostrar_resultados(
+    data, mapa, salida, zoom_inicial, inliers_inicial, parametros, salida_graficos=None
+):
     """Guarda el CSV, las graficas y los parametros del procesamiento."""
     salida = Path(salida)
     salida.mkdir(parents=True, exist_ok=True)
+    salida_graficos = Path(salida_graficos or salida)
+    salida_graficos.mkdir(parents=True, exist_ok=True)
     data = np.asarray(data, dtype=float)
     speed = calcular_rapidez_instantanea(data)
     altitude = 1.0 / np.maximum(data[:, 4], 1e-12)
     altitude /= altitude[0]
 
-    csv_path = salida / "trayectoria_dron.csv"
+    csv_path = salida_graficos / "trayectoria_dron.csv"
     with csv_path.open("w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerow([
@@ -41,7 +45,7 @@ def mostrar_resultados(data, mapa, salida, zoom_inicial, inliers_inicial, parame
     axis.set_ylabel("Y del mapa (pixeles)")
     axis.legend()
     figure.tight_layout()
-    figure.savefig(salida / "trayectoria_mapa.png", dpi=150)
+    figure.savefig(salida_graficos / "trayectoria_mapa.png", dpi=150)
     plt.close(figure)
 
     # Cambiamos el eje vertical para leer el recorrido como un plano cartesiano.
@@ -57,7 +61,7 @@ def mostrar_resultados(data, mapa, salida, zoom_inicial, inliers_inicial, parame
     axis.grid(alpha=0.25)
     axis.legend()
     figure.tight_layout()
-    figure.savefig(salida / "trayectoria_cartesiana.png", dpi=150)
+    figure.savefig(salida_graficos / "trayectoria_cartesiana.png", dpi=150)
     plt.close(figure)
 
     figure, axis = plt.subplots(figsize=(9, 4.5))
@@ -67,7 +71,7 @@ def mostrar_resultados(data, mapa, salida, zoom_inicial, inliers_inicial, parame
     axis.set_ylabel("Zoom relativo Z(t)")
     axis.grid(alpha=0.25)
     figure.tight_layout()
-    figure.savefig(salida / "zoom_relativo.png", dpi=150)
+    figure.savefig(salida_graficos / "zoom_relativo.png", dpi=150)
     plt.close(figure)
 
     figure, axis = plt.subplots(figsize=(9, 4.5))
@@ -77,7 +81,7 @@ def mostrar_resultados(data, mapa, salida, zoom_inicial, inliers_inicial, parame
     axis.set_ylabel("Altitud relativa H(t)")
     axis.grid(alpha=0.25)
     figure.tight_layout()
-    figure.savefig(salida / "altitud_relativa.png", dpi=150)
+    figure.savefig(salida_graficos / "altitud_relativa.png", dpi=150)
     plt.close(figure)
 
     figure, axis = plt.subplots(figsize=(9, 4.5))
@@ -87,7 +91,7 @@ def mostrar_resultados(data, mapa, salida, zoom_inicial, inliers_inicial, parame
     axis.set_ylabel("Flujo (pixeles/frame)")
     axis.grid(alpha=0.25)
     figure.tight_layout()
-    figure.savefig(salida / "flujo_optico.png", dpi=150)
+    figure.savefig(salida_graficos / "flujo_optico.png", dpi=150)
     plt.close(figure)
 
     figure, axis = plt.subplots(figsize=(9, 4.5))
@@ -97,10 +101,10 @@ def mostrar_resultados(data, mapa, salida, zoom_inicial, inliers_inicial, parame
     axis.set_ylabel("Rapidez (pixeles/s)")
     axis.grid(alpha=0.25)
     figure.tight_layout()
-    figure.savefig(salida / "rapidez_instantanea.png", dpi=150)
+    figure.savefig(salida_graficos / "rapidez_instantanea.png", dpi=150)
     plt.close(figure)
 
-    (salida / "parametros_extraccion.txt").write_text(
+    (salida_graficos / "parametros_extraccion.txt").write_text(
         f"zoom inicial mapa/frame: {zoom_inicial:.6f}\n"
         f"inliers del registro inicial: {inliers_inicial}\n"
         f"parametros: {parametros}\n",

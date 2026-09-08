@@ -150,9 +150,17 @@ def registrar_frame_inicial(frame_gray, mapa_gray):
     return homography, int(mask.sum())
 
 
-def guardar_resultados(rows, mapa, salida, zoom_inicial, inliers_inicial):
+def guardar_resultados(
+    rows, mapa, salida, zoom_inicial, inliers_inicial, salida_graficos=None
+):
     return mostrar_resultados(
-        rows, mapa, salida, zoom_inicial, inliers_inicial, PARAMETROS
+        rows,
+        mapa,
+        salida,
+        zoom_inicial,
+        inliers_inicial,
+        PARAMETROS,
+        salida_graficos,
     )
 
 
@@ -164,6 +172,8 @@ def ejecutar_extraccion(
     mapa_path=MAPA_DEFAULT,
     salida=SALIDA_DEFAULT,
     etiqueta_resultados="Resultados",
+    mostrar_resultado=True,
+    salida_graficos=None,
 ):
     mapa = cv2.imread(str(mapa_path), cv2.IMREAD_COLOR)
     capture = cv2.VideoCapture(str(video_path))
@@ -235,8 +245,16 @@ def ejecutar_extraccion(
     for column in (2, 3, 4):
         data[:, column] = interpolar_cubica(data[:, column], reliable_array)
     data = cerrar_trayectoria(data)
-    csv_path = guardar_resultados(data, mapa, Path(salida), initial_zoom, initial_inliers)
-    print(f"{etiqueta_resultados}: {csv_path.resolve()}")
+    csv_path = guardar_resultados(
+        data,
+        mapa,
+        Path(salida),
+        initial_zoom,
+        initial_inliers,
+        salida_graficos,
+    )
+    if mostrar_resultado:
+        print(f"{etiqueta_resultados}: {csv_path.resolve()}")
     return data
 
 
