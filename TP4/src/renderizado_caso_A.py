@@ -108,14 +108,23 @@ def remuestrear_velocidad_constante(t, x, y, zoom, t_nodos, x_nodos, y_nodos):
     t_denso = np.linspace(t[0], t[-1], max(10000, 100 * len(t)))
     x_denso = spline_cubico_natural(t_denso, t_nodos, x_nodos)
     y_denso = spline_cubico_natural(t_denso, t_nodos, y_nodos)
+    zoom_denso = np.interp(t_denso, t, zoom)
     tramos = np.hypot(np.diff(x_denso), np.diff(y_denso))
     longitud = np.concatenate(([0.0], np.cumsum(tramos)))
     if longitud[-1] <= 0.0:
         raise ValueError("La trayectoria no tiene longitud suficiente para renderizarse")
 
-    # Reparametrizamos por longitud de arco para imponer s(t) = v0 * (t - t0).
-    velocidad_constante = longitud[-1] / (t[-1] - t[0])
-    distancia_objetivo = velocidad_constante * (t - t[0])
+    # El zoom amplifica el desplazamiento visible. Para mantener constante
+    # esa rapidez, la distancia del mapa debe crecer proporcional a 1 / zoom.
+    tiempo_inverso_zoom = 1.0 / zoom_denso
+    integral_inversa = np.concatenate(
+        ([0.0], np.cumsum(
+            0.5 * (tiempo_inverso_zoom[:-1] + tiempo_inverso_zoom[1:])
+            * np.diff(t_denso)
+        ))
+    )
+    velocidad_constante = longitud[-1] / integral_inversa[-1]
+    distancia_objetivo = velocidad_constante * np.interp(t, t_denso, integral_inversa)
     x_uniforme = np.interp(distancia_objetivo, longitud, x_denso)
     y_uniforme = np.interp(distancia_objetivo, longitud, y_denso)
     zoom_uniforme = zoom.copy()
