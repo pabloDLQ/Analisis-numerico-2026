@@ -32,8 +32,8 @@ ALTO_PANEL = 600
 # ---------------------------------------------------------------------
 # Carga y referencia espacial
 # ---------------------------------------------------------------------
-def cargar_trayectoria_y_zoom(ruta_csv: Path):
-    t, x, y, _, t_nodos, x_nodos, y_nodos, _ = cargar_datos_y_nodos(
+def cargar_trayectoria(ruta_csv: Path):
+    t, _, _, _, t_nodos, x_nodos, y_nodos, _ = cargar_datos_y_nodos(
         ruta_csv, SALTO_NODOS
     )
     zoom = np.genfromtxt(
@@ -44,18 +44,17 @@ def cargar_trayectoria_y_zoom(ruta_csv: Path):
         dtype=float,
     )
     zoom = np.atleast_1d(zoom)
-    if len(t) < 2 or len(zoom) != len(t):
-        raise ValueError("La trayectoria y el zoom no tienen la misma cantidad de muestras")
-    if not np.all(np.isfinite(t)) or not np.all(np.diff(t) > 0):
+    if len(t) < 2 or not np.all(np.isfinite(t)) or not np.all(np.diff(t) > 0):
         raise ValueError("Los tiempos deben ser finitos y estrictamente crecientes")
-    if not np.all(np.isfinite(zoom)) or np.any(zoom <= 0):
-        raise ValueError("El zoom relativo debe contener valores positivos y finitos")
+    if len(zoom) != len(t) or not np.all(np.isfinite(zoom)) or np.any(zoom <= 0):
+        raise ValueError("El zoom debe tener un valor positivo y finito por muestra")
+    zoom = zoom / zoom[0]
 
     x_spline = spline_cubico_natural(t, t_nodos, x_nodos)
     y_spline = spline_cubico_natural(t, t_nodos, y_nodos)
     if not np.all(np.isfinite(x_spline)) or not np.all(np.isfinite(y_spline)):
         raise ValueError("El spline produjo coordenadas no finitas")
-    return t, x, y, x_spline, y_spline, zoom
+    return t, t_nodos, x_nodos, y_nodos, x_spline, y_spline, zoom
 
 
 def obtener_referencia_frame0(ruta_video: Path, mapa):
@@ -96,39 +95,40 @@ def obtener_referencia_frame0(ruta_video: Path, mapa):
 # ---------------------------------------------------------------------
 # Parametrizacion de la trayectoria
 # ---------------------------------------------------------------------
-def remuestrear_velocidad_constante(t, x, y, zoom, t_nodos, x_nodos, y_nodos):
+def remuestrear_velocidad_constante(
+    t, t_nodos, x_nodos, y_nodos, zoom, cantidad_muestras_densas=10000
+):
     t = np.asarray(t, dtype=float)
-    x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float)
     zoom = np.asarray(zoom, dtype=float)
-    if len(t) < 2 or not (len(t) == len(x) == len(y) == len(zoom)):
-        raise ValueError("Las muestras temporales, espaciales y de zoom deben coincidir")
+    if len(t) < 2 or not np.all(np.diff(t) > 0):
+        raise ValueError("Se necesitan al menos dos tiempos estrictamente crecientes")
+    if len(zoom) != len(t) or not np.all(np.isfinite(zoom)) or np.any(zoom <= 0):
+        raise ValueError("El zoom debe tener un valor positivo y finito por muestra")
 
     # Una tabla densa mide la longitud del spline, no solo la cuerda entre muestras.
-    t_denso = np.linspace(t[0], t[-1], max(10000, 100 * len(t)))
+    t_denso = np.linspace(t[0], t[-1], max(cantidad_muestras_densas, 100 * len(t)))
     x_denso = spline_cubico_natural(t_denso, t_nodos, x_nodos)
     y_denso = spline_cubico_natural(t_denso, t_nodos, y_nodos)
-    zoom_denso = np.interp(t_denso, t, zoom)
     tramos = np.hypot(np.diff(x_denso), np.diff(y_denso))
     longitud = np.concatenate(([0.0], np.cumsum(tramos)))
     if longitud[-1] <= 0.0:
         raise ValueError("La trayectoria no tiene longitud suficiente para renderizarse")
 
-    # El zoom amplifica el desplazamiento visible. Para mantener constante
-    # esa rapidez, la distancia del mapa debe crecer proporcional a 1 / zoom.
-    tiempo_inverso_zoom = 1.0 / zoom_denso
-    integral_inversa = np.concatenate(
-        ([0.0], np.cumsum(
-            0.5 * (tiempo_inverso_zoom[:-1] + tiempo_inverso_zoom[1:])
-            * np.diff(t_denso)
-        ))
-    )
-    velocidad_constante = longitud[-1] / integral_inversa[-1]
-    distancia_objetivo = velocidad_constante * np.interp(t, t_denso, integral_inversa)
-    x_uniforme = np.interp(distancia_objetivo, longitud, x_denso)
-    y_uniforme = np.interp(distancia_objetivo, longitud, y_denso)
-    zoom_uniforme = zoom.copy()
-    return x_uniforme, y_uniforme, zoom_uniforme, velocidad_constante
+    # El zoom amplifica el movimiento visible. Para que la rapidez del
+    # render permanezca constante, la longitud debe avanzar proporcionalmente
+    # a 1 / zoom(t).
+    zoom_denso = np.interp(t_denso, t, zoom)
+    tiempo_visual = 1.0 / zoom_denso
+    tiempo_visual_acumulado = np.concatenate(([0.0], np.cumsum(
+        0.5 * (tiempo_visual[:-1] + tiempo_visual[1:]) * np.diff(t_denso)
+    )))
+    # Esta velocidad es la rapidez aparente sobre el panel, no la rapidez
+    # geométrica sin zoom sobre el mapa.
+    velocidad_constante = longitud[-1] / tiempo_visual_acumulado[-1]
+    distancia = velocidad_constante * np.interp(t, t_denso, tiempo_visual_acumulado)
+    x_uniforme = np.interp(distancia, longitud, x_denso)
+    y_uniforme = np.interp(distancia, longitud, y_denso)
+    return x_uniforme, y_uniforme, zoom, velocidad_constante
 
 
 def validar_velocidad_constante(t, velocidad_constante):
@@ -194,14 +194,10 @@ def renderizar_caso_A(ruta_csv=RUTA_CSV, ruta_mapa=RUTA_MAPA, ruta_video=RUTA_VI
     frame0, _, base_width, base_height = obtener_referencia_frame0(
         RUTA_VIDEO_ORIGINAL, mapa
     )
-    t, _, _, x_spline, y_spline, zoom = cargar_trayectoria_y_zoom(Path(ruta_csv))
-    _, _, _, _, t_nodos, x_nodos, y_nodos, _ = cargar_datos_y_nodos(
-        Path(ruta_csv), SALTO_NODOS
-    )
+    t, t_nodos, x_nodos, y_nodos, _, _, zoom = cargar_trayectoria(Path(ruta_csv))
     x, y, zoom, velocidad_constante = remuestrear_velocidad_constante(
-        t, x_spline, y_spline, zoom, t_nodos, x_nodos, y_nodos
+        t, t_nodos, x_nodos, y_nodos, zoom
     )
-    zoom = zoom / zoom[0]
     velocidad_constante = validar_velocidad_constante(t, velocidad_constante)
 
     ruta_video = Path(ruta_video)

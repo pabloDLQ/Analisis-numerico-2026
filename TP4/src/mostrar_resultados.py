@@ -96,7 +96,7 @@ def mostrar_resultados(
 
     figure, axis = plt.subplots(figsize=(9, 4.5))
     axis.plot(data[:, 1], speed, color="#d9480f")
-    axis.set_title("Rapidez escalar instantanea")
+    axis.set_title("Rapidez escalar instantanea por diferenciacion numerica")
     axis.set_xlabel("Tiempo (s)")
     axis.set_ylabel("Rapidez (pixeles/s)")
     axis.grid(alpha=0.25)
@@ -114,8 +114,13 @@ def mostrar_resultados(
 
 
 def calcular_rapidez_instantanea(data):
-    """Obtiene la rapidez escalar a partir de diferencias temporales."""
+    """Calcula v(t) diferenciando numericamente la trayectoria x(t), y(t)."""
     time = data[:, 1]
+    if len(time) < 2 or np.any(np.diff(time) <= 0):
+        raise ValueError("Los tiempos deben ser estrictamente crecientes")
+
+    # np.gradient usa diferencias centrales en el interior y unilaterales
+    # de segundo orden en los extremos.
     velocity_x = np.gradient(data[:, 2], time)
     velocity_y = np.gradient(data[:, 3], time)
     return np.hypot(velocity_x, velocity_y)
