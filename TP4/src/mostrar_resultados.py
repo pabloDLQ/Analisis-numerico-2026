@@ -69,6 +69,7 @@ def mostrar_resultados(
     axis.set_title("Zoom relativo en funcion del tiempo")
     axis.set_xlabel("Tiempo (s)")
     axis.set_ylabel("Zoom relativo Z(t)")
+    axis.set_ylim(0.66, 1.53)
     axis.grid(alpha=0.25)
     figure.tight_layout()
     figure.savefig(salida_graficos / "zoom_relativo.png", dpi=150)

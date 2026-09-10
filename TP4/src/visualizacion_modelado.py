@@ -38,7 +38,7 @@ def graficar_comparaciones(
     ruta_mapa=RUTA_MAPA,
     directorio_salida=DIRECTORIO_SALIDA,
 ):
-    """Genera y guarda las tres comparaciones solicitadas."""
+    """Genera y guarda las comparaciones espaciales y verticales."""
     directorio_salida = Path(directorio_salida)
     directorio_salida.mkdir(parents=True, exist_ok=True)
 
@@ -138,6 +138,30 @@ def graficar_comparaciones(
     eje.grid(alpha=0.25)
     figura.tight_layout()
     figura.savefig(directorio_salida / "comparacion_altitud.png", dpi=150)
+    plt.close(figura)
+
+    # El zoom relativo es el inverso de la altitud relativa normalizada.
+    zoom = 1.0 / z
+    zoom_global = 1.0 / z_global
+    zoom_spline = 1.0 / z_spline
+    figura, eje = plt.subplots(figsize=(10, 5.5))
+    eje.plot(t, zoom, color="black", linewidth=1.2, label="Trayectoria con ruido")
+    eje.plot(
+        t,
+        zoom_global,
+        color="#e8590c",
+        linewidth=2,
+        label=f"Global (polinomio grado {GRADO_POLINOMIO})",
+    )
+    eje.plot(t, zoom_spline, color="#1c7ed6", linewidth=2, label="Local (Spline)")
+    eje.set_title("Zoom relativo")
+    eje.set_xlabel("Tiempo (s)")
+    eje.set_ylabel("Zoom relativo Z(t)")
+    eje.set_ylim(0.66, 1.56)
+    eje.legend()
+    eje.grid(alpha=0.25)
+    figura.tight_layout()
+    figura.savefig(directorio_salida / "comparacion_zoom_relativo.png", dpi=150)
     plt.close(figura)
 
     return directorio_salida
