@@ -1,0 +1,231 @@
+INCISO 1.c - DEDUCCIÓN DEL MÉTODO PARA CALCULAR SUPERFICIES
+==============================================================
+
+1. Datos y modelo geométrico
+-----------------------------
+
+Cada techo está representado por una lista ordenada de nodos discretos:
+
+    P_i = (x_i, y_i),    i = 0, 1, ..., n - 1
+
+Las coordenadas están expresadas en píxeles de la imagen. Los puntos se
+interpretan como vértices consecutivos de una poligonal que aproxima el
+contorno del techo. Para obtener una región cerrada, el último punto se
+conecta con el primero:
+
+    P_n = P_0
+
+El programa implementa esta clausura en la función
+`parametrizar_contorno`. Si el archivo ya contiene el primer punto repetido
+al final, no se agrega otro punto.
+
+2. Teorema de Green
+-------------------
+
+Sea D la región encerrada por el contorno C, orientado positivamente
+(sentido antihorario). El teorema de Green establece que, para campos
+adecuadamente suaves:
+
+    ∮_C (P dx + Q dy) = ∬_D (∂Q/∂x - ∂P/∂y) dA
+
+Elegimos:
+
+    P(x,y) = -y/2
+    Q(x,y) =  x/2
+
+Entonces:
+
+    ∂Q/∂x - ∂P/∂y = 1/2 - (-1/2) = 1
+
+Por lo tanto, la integral doble queda igual al área de D:
+
+    A = ∬_D 1 dA
+      = ∮_C (-y/2 dx + x/2 dy)
+      = 1/2 ∮_C (x dy - y dx)
+
+Esta expresión permite calcular el área a partir del contorno, sin integrar
+la región interior píxel por píxel.
+
+3. Parametrización discreta por segmentos
+------------------------------------------
+
+Entre dos nodos consecutivos P_i y P_(i+1), el contorno se parametriza
+linealmente con t en [0, 1]:
+
+    x(t) = x_i + t (x_(i+1) - x_i)
+    y(t) = y_i + t (y_(i+1) - y_i)
+
+Sus diferenciales son:
+
+    dx = (x_(i+1) - x_i) dt
+    dy = (y_(i+1) - y_i) dt
+
+Al reemplazar en la integral de Green:
+
+    x dy - y dx
+    = [x_i + t Δx][Δy] dt
+      - [y_i + t Δy][Δx] dt
+
+Los términos que contienen t se cancelan porque:
+
+    t Δx Δy - t Δy Δx = 0
+
+Por lo tanto, la contribución del segmento es constante:
+
+    ∫_(P_i)^(P_(i+1)) (x dy - y dx)
+    = x_i y_(i+1) - x_(i+1) y_i
+
+Sumando todos los segmentos y multiplicando por 1/2:
+
+    A_orientada =
+    1/2 Σ_(i=0)^(n-1)
+    [x_i y_(i+1) - x_(i+1) y_i]
+
+Esta es la fórmula del área de Gauss, también conocida como fórmula de
+Shoelace:
+
+    A = |A_orientada|
+
+El valor absoluto permite obtener el área geométrica independientemente de
+si los nodos fueron proporcionados en sentido horario o antihorario. Sin
+valor absoluto, la fórmula entrega un área orientada: positiva en una
+orientación y negativa en la otra.
+
+4. Correspondencia con la implementación
+-----------------------------------------
+
+La función `area_gauss_pixeles_cuadrados` realiza exactamente los pasos
+anteriores:
+
+    x = puntos[:, 0]
+    y = puntos[:, 1]
+    area_orientada =
+        0.5 * sum(x[:-1] * y[1:] - x[1:] * y[:-1])
+
+El uso de `x[:-1]` y `y[1:]` representa cada par de nodos consecutivos,
+incluido el segmento de cierre porque `parametrizar_contorno` garantiza que
+el último punto sea igual al primero.
+
+La prueba incluida en el programa utiliza el rectángulo:
+
+    (0,0), (100,0), (100,50), (0,50)
+
+Para ese polígono:
+
+    A = 100 * 50 = 5000 px²
+
+La función devuelve exactamente 5000 px², por lo que se verifica la fórmula
+en un caso cuya superficie se conoce analíticamente.
+
+5. Conversión de píxeles cuadrados a metros cuadrados
+------------------------------------------------------
+
+La escala provista es:
+
+    1 px = 0.5073 m
+
+Como el área tiene dos dimensiones, la conversión correcta se obtiene
+elevando la escala al cuadrado:
+
+    1 px² = (0.5073 m)²
+          = 0.25735329 m²
+
+Así, si A_px2 es el área calculada por Shoelace:
+
+    A_m2 = A_px2 * (0.5073)²
+
+Aplicando esta conversión a los contornos del archivo se obtuvieron:
+
+    techo_0: 11565.87 px² = 2976.52 m²
+    techo_1: 16105.64 px² = 4144.84 m²
+    total:                         7121.35 m²
+
+6. Por qué el método es riguroso para los nodos discretos
+----------------------------------------------------------
+
+El método es riguroso en el siguiente sentido: dada la poligonal cerrada
+formada por los nodos suministrados, la fórmula de Gauss no es una
+aproximación numérica de una integral evaluada con puntos intermedios. Es
+la expresión analítica exacta del área encerrada por esa poligonal.
+
+En particular:
+
+* La parametrización de cada lado es lineal y se integra exactamente.
+* La suma incluye todos los segmentos, incluido el de cierre.
+* No se usa una cuadratura aproximada ni una integración automática.
+* La fórmula se deriva directamente del teorema de Green.
+* El algoritmo requiere una cantidad lineal de operaciones, O(n), donde n
+  es el número de nodos.
+
+Por lo tanto, para los datos discretos provistos, el resultado es exacto
+salvo el error de representación y redondeo de la aritmética de punto
+flotante. Lo que puede ser aproximado no es la fórmula sobre la poligonal,
+sino la decisión previa de representar el contorno real mediante esos
+nodos.
+
+7. Posibles fuentes de error
+----------------------------
+
+7.1. Aproximación geométrica del contorno
+
+Los nodos describen una poligonal. Si el techo real tiene bordes curvos,
+irregulares o detalles que no fueron muestreados, la poligonal puede
+sobrestimar o subestimar el área real. Este es el principal error del
+modelo geométrico.
+
+7.2. Resolución y segmentación de la imagen
+
+La ubicación de un borde puede ser incierta por la resolución de la
+imagen, sombras, textura, compresión JPEG, contraste o dificultad para
+separar el techo de su entorno. Un desplazamiento de los nodos modifica
+directamente el área calculada.
+
+7.3. Escala espacial
+
+La conversión supone que 0.5073 m por píxel es válida para toda la imagen.
+Si la imagen presenta distorsión, perspectiva, georreferenciación
+imprecisa o una escala que varía espacialmente, el error de escala afecta
+el resultado. Además, como la escala se eleva al cuadrado, un error
+relativo en la escala produce aproximadamente el doble de error relativo
+en el área:
+
+    δA/A ≈ 2 δs/s
+
+7.4. Orden y cierre de los nodos
+
+La fórmula requiere que los puntos estén ordenados siguiendo el contorno.
+Si los nodos se cruzan, están desordenados o describen una región con
+autointersecciones, la suma calcula un área orientada con cancelaciones y
+puede no representar la superficie física buscada.
+
+7.5. Puntos repetidos o degenerados
+
+Puntos consecutivos repetidos no agregan área, pero pueden indicar un dato
+redundante. Si hay menos de tres puntos no existe un polígono con área.
+También puede aparecer un área nula si todos los puntos son colineales.
+
+7.6. Redondeo numérico
+
+Los arreglos se almacenan con tipo `float64`. La suma y las operaciones
+aritméticas tienen un error de redondeo finito. Para los tamaños de los
+contornos utilizados, este error es normalmente mucho menor que la
+incertidumbre geométrica, pero explica por qué en general no se debe
+interpretar cualquier resultado de datos reales como exacto a todas las
+cifras decimales.
+
+7.7. Redondeo de presentación
+
+El programa muestra las áreas en metros cuadrados con dos cifras decimales.
+El valor almacenado y utilizado en los cálculos conserva más precisión; el
+redondeo a dos decimales solo afecta la presentación del informe.
+
+Conclusión
+----------
+
+La superficie se calcula mediante una deducción formal basada en Green. Al
+parametrizar linealmente los lados entre los nodos y sumar sus integrales,
+se obtiene exactamente la fórmula de Gauss para la poligonal discreta.
+Por eso el método es matemáticamente riguroso para el contorno que
+realmente definen los nodos. La diferencia respecto del área física real
+depende principalmente de qué tan fielmente esos nodos representan el
+contorno del techo y de la exactitud de la escala de la imagen.
