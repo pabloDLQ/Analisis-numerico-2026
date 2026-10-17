@@ -1,0 +1,66 @@
+Análisis Numérico - Trabajo Práctico 5
+Sección 2: Radiación Solar
+
+2.a) Irradiancia Diaria Acumulada
+Para cuantificar la irradiancia diaria acumulada (Hdia) entre las 6:00 y las 20:00 horas, 
+se calculó la integral definida de la irradiancia teórica incidente (t). 
+
+El resultado numérico obtenido fue de 8.162747 kWh/m2 por día.
+
+Justificación del método:
+Se seleccionó la Regla de Simpson 1/3 compuesta. La función ($G(t)$), al estar definida como 
+el producto de funciones trigonométricas y exponenciales, es infinitamente derivable, garantizando 
+una curva perfectamente suave, sin discontinuidades ni singularidades en el intervalo de integración. 
+La Regla de Simpson 1/3 se fundamenta en la interpolación polinómica de segundo grado (parábolas), 
+la cual se adapta de manera óptima a las concavidades de este tipo de funciones suaves. Matemáticamente, 
+posee un error global de truncamiento del orden de ($h^4$), lo que permite alcanzar una altísima 
+precisión con un esfuerzo computacional mínimo. Además, la elección de un número par de subintervalos 
+permite una transición natural y eficiente para el análisis de reducción de paso requerido en el inciso 
+posterior.
+
+2.b) Estimación de Error de Truncamiento
+Para estimar la magnitud y el orden del error sin recurrir a una solución analítica exacta, se 
+implementó el Método de estimación del error de Runge (extrapolación a la mitad del paso). 
+
+Los resultados arrojaron:
+- Error absoluto estimado: 0.000000308232 kWh/m2 por día
+- Orden empírico de convergencia: 3.996339
+
+Justificación y análisis:
+El método de Runge asume que el error de truncamiento es proporcional a la longitud del paso ($h$) elevado 
+al orden ($p$) del método. Al evaluar la integral con pasos ($h$), la mitad de ($h$) y un cuarto de ($h$), 
+es posible despejar los términos de error. 
+
+Para calcular la magnitud del error residual de la mejor estimación, se utilizó la relación teórica para 
+un método de cuarto orden. La magnitud ínfima del error estimado (aproximadamente $3 \times 10^{-7}$) confirma 
+que el algoritmo convergió rápidamente gracias a la mencionada suavidad de ($G(t)$).
+
+Por otro lado, se evaluó empíricamente el orden de convergencia ($p$). El valor obtenido de 3.996339 corrobora 
+experimentalmente la teoría matemática: al reducir el paso a la mitad, el error se reduce en un factor de 16 
+(que es 2 elevado a la cuarta potencia).
+
+2.c) Impacto de la Nubosidad
+Se analizó la integral bajo dos escenarios meteorológicos alternativos variando progresivamente la cantidad de subintervalos ($N$):
+
+- Escenario 1 (Día completamente nublado): El valor convergió rápidamente y se estabilizó en 2.040667 kWh/m2 
+                                           por día desde un ($N$) igual a 100.
+- Escenario 2 (Día con cúmulos oscilantes): El valor presentó rebotes iniciales (4.899 con ($N$) igual a 10, 
+                                            subiendo a 4.913 con ($N$) igual a 50, y bajando a 4.897 con ($N$) 
+                                            igual a 100), logrando estabilizar todos sus decimales relevantes 
+                                            en 4.897905 kWh/m2 por día recién a partir de un ($N$) de 500.
+
+Análisis de precisión y discrepancias:
+El notable contraste en la convergencia entre ambos escenarios radica en la "suavidad" de las funciones objetivo 
+y la naturaleza de la interpolación de Simpson. 
+
+En el día nublado, la función es simplemente un escalamiento lineal de la curva original. Al conservar su diferenciabilidad 
+continua, la interpolación parabólica de Simpson 1/3 opera en su zona de máximo rendimiento, logrando una convergencia casi 
+instantánea con mallas gruesas.
+
+Por el contrario, el día oscilante introduce una función con operaciones dinámicas de recorte o saturación sobre una oscilación 
+de alta frecuencia. Estas restricciones generan vértices o quiebres angulosos en la gráfica donde la primera derivada no es continua. 
+La Regla de Simpson 1/3 aproxima el área mediante parábolas que son inherentemente curvas; por ende, son incapaces de "doblar" en 
+ángulos agudos. Esto produce un fenómeno de submuestreo espacial para valores bajos de ($N$), donde el polinomio omite cimas o valles 
+de las nubes oscilantes, generando la fluctuación (rebote) observada en los resultados. La precisión requerida solo se alcanza cuando 
+el paso ($h$) es tan fino (con un $N$ mayor o igual a 500) que el algoritmo logra discretizar y mapear el interior de cada una de 
+estas fluctuaciones rápidas.
