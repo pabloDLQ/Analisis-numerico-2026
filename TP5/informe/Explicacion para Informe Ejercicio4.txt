@@ -1,0 +1,446 @@
+Análisis Numérico - Trabajo Práctico 5
+Sección 4: Modelado de Descarga Pluvial
+
+El objetivo de este ejercicio es estimar el volumen total de agua drenado por
+los techos durante una tormenta de tres horas. Para ello, se reutiliza el área
+colectora calculada en el ejercicio 1 y se modela el caudal de escorrentía a
+partir de una función de intensidad de lluvia. El volumen se obtiene
+integrando dicho caudal entre t = 0 y t = 3 horas mediante dos esquemas de
+cuadratura numérica:
+
+- Método abierto de Newton-Cotes de tres puntos interiores.
+- Regla de Simpson 1/3 compuesta con N = 12 subintervalos.
+
+Posteriormente, se calcula la solución analítica exacta y se comparan los
+errores absolutos y relativos de ambos métodos.
+
+
+4.a) Cálculo del volumen total drenado
+--------------------------------------
+
+El área total de los techos se obtiene reutilizando la función
+`calcular_area_total_techos`, implementada para el ejercicio 1. Esta función
+lee los contornos de los techos, calcula sus superficies mediante la fórmula
+de Gauss/Shoelace y convierte los resultados desde píxeles cuadrados a metros
+cuadrados utilizando la escala espacial de la imagen.
+
+El área colectora total obtenida es:
+
+    A_total = 7121.35 m²
+
+Se considera que el 90 % del agua precipitada sobre esta superficie se
+convierte en escorrentía. Este porcentaje se representa mediante el
+coeficiente de escorrentía:
+
+    C = 0.90
+
+La intensidad de lluvia utilizada en el modelo es:
+
+    i(t) = 45 t e^(-t)       [mm/h]
+
+El factor 45 determina la escala de la intensidad, mientras que el producto
+t e^(-t) describe la variación temporal de la tormenta. Para convertir la
+intensidad desde milímetros por hora a metros por hora se divide por 1000.
+Por lo tanto, el caudal volumétrico queda definido por:
+
+    Q(t) = A_total · C · i(t)/1000
+
+Reemplazando la expresión de la intensidad:
+
+    Q(t) = A_total · 0.90 · (45 t e^(-t) / 1000)
+
+El caudal está expresado en m³/h. En consecuencia, el volumen total drenado
+durante la tormenta es:
+
+    V = ∫_0^3 Q(t) dt
+
+La función `caudal_volumetrico` implementa esta expresión y está vectorizada
+con NumPy. Esto permite evaluarla tanto en un único instante como en un
+arreglo completo de nodos de integración, sin utilizar ciclos explícitos para
+el cálculo de los valores de la función.
+
+4.a.1) Método abierto de Newton-Cotes de tres puntos interiores
+---------------------------------------------------------------
+
+Para aproximar la integral mediante la fórmula abierta de Newton-Cotes de
+tres puntos interiores se divide el intervalo [a,b] en cuatro subintervalos
+de igual longitud:
+
+    a = 0
+    b = 3
+
+    h = (b - a)/4
+      = (3 - 0)/4
+      = 0.75 h
+
+Al ser un método abierto, no se utilizan los extremos a y b. Los tres nodos
+interiores son:
+
+    t_1 = a + h
+        = 0.75
+
+    t_2 = a + 2h
+        = 1.50
+
+    t_3 = a + 3h
+        = 2.25
+
+La fórmula de cuadratura utilizada es:
+
+    ∫_a^b f(t) dt
+    ≈ (4h/3) [2f(t_1) - f(t_2) + 2f(t_3)]
+
+Aplicada al caudal, la aproximación es:
+
+    V_abierto
+    ≈ (4h/3) [2Q(0.75) - Q(1.50) + 2Q(2.25)]
+
+La función `newton_cotes_abierta_3_puntos` implementa esta fórmula desde
+cero. Primero construye mediante NumPy el arreglo de nodos interiores
+
+    [0.75, 1.50, 2.25]
+
+y luego evalúa la función recibida en esos tres puntos. Finalmente combina
+los valores con los pesos 2, -1 y 2 correspondientes a la fórmula abierta.
+
+El resultado obtenido para el volumen es:
+
+    V_abierto ≈ 244.6194 m³
+
+Redondeando a dos cifras decimales:
+
+    V_abierto ≈ 244.62 m³
+
+4.a.2) Método cerrado de Simpson 1/3 compuesto
+----------------------------------------------
+
+Como segundo esquema se utiliza la Regla de Simpson 1/3 compuesta. En este
+caso no se implementa una fórmula nueva, sino que se reutiliza la función
+`simpson_un_tercio` desarrollada en el ejercicio de irradiancia diaria.
+
+Se utilizan los límites:
+
+    a = 0
+    b = 3
+
+y se elige:
+
+    N = 12
+
+La cantidad de subintervalos es par, condición necesaria para aplicar
+Simpson 1/3 compuesto. El paso de integración es:
+
+    h = (b - a)/N
+      = (3 - 0)/12
+      = 0.25 h
+
+La regla utiliza todos los nodos de la malla, incluyendo los extremos, y
+asigna pesos alternados a los puntos interiores:
+
+    ∫_a^b f(t) dt
+    ≈ h/3 [f(t_0) + f(t_N)
+           + 4 Σ f(t_i), i impar
+           + 2 Σ f(t_i), i par]
+
+Aplicada a la función de caudal:
+
+    V_Simpson ≈ Simpson(Q(t), 0, 3, N = 12)
+
+El resultado obtenido es:
+
+    V_Simpson ≈ 230.9590 m³
+
+Redondeando a dos cifras decimales:
+
+    V_Simpson ≈ 230.98 m³
+
+Los resultados del inciso 4.a son, por lo tanto:
+
+Método                                      Volumen
+Newton-Cotes abierta, 3 puntos interiores   244.6194 m³
+Simpson 1/3 compuesto, N = 12               230.9590 m³
+
+
+4.b) Solución analítica exacta y cálculo de errores
+---------------------------------------------------
+
+Para obtener una referencia independiente de los métodos numéricos, se
+calcula analíticamente la integral del caudal. Al reemplazar la expresión de
+Q(t), se obtiene:
+
+    V = ∫_0^3 A_total · 0.90 · (45/1000) t e^(-t) dt
+
+Como los factores que no dependen de t son constantes, pueden extraerse de
+la integral:
+
+    V = A_total · 0.90 · (45/1000)
+        · ∫_0^3 t e^(-t) dt
+
+4.b.1) Integración por partes
+-----------------------------
+
+Se aplica integración por partes a:
+
+    ∫ t e^(-t) dt
+
+Se eligen:
+
+    u = t
+    dv = e^(-t) dt
+
+Entonces:
+
+    du = dt
+    v = -e^(-t)
+
+La fórmula de integración por partes es:
+
+    ∫ u dv = uv - ∫ v du
+
+Por lo tanto:
+
+    ∫ t e^(-t) dt
+    = t(-e^(-t)) - ∫ (-e^(-t)) dt
+    = -t e^(-t) - e^(-t)
+
+La primitiva puede escribirse como:
+
+    F(t) = -(t + 1)e^(-t)
+
+Evaluando entre 0 y 3:
+
+    ∫_0^3 t e^(-t) dt
+    = [-t e^(-t) - e^(-t)]_0^3
+
+    = (-3e^(-3) - e^(-3)) - (0 - 1)
+
+    = -4e^(-3) + 1
+
+Por lo tanto:
+
+    ∫_0^3 t e^(-t) dt = 1 - 4e^(-3)
+
+La expresión exacta para el volumen es:
+
+    V_exacto =
+    A_total · 0.90 · (45/1000) · (1 - 4e^(-3))
+
+Esta fórmula es implementada por la función
+`volumen_analitico_exacto`, utilizando `np.exp(-3.0)` para evaluar la
+exponencial sin recurrir a librerías adicionales.
+
+Con el área total calculada en el ejercicio 1:
+
+    V_exacto ≈ 230.9775 m³
+
+Es decir, el volumen exacto es aproximadamente:
+
+    V_exacto ≈ 230.98 m³
+
+4.b.2) Definición de los errores
+--------------------------------
+
+Para cada método numérico se calcula el error absoluto como:
+
+    Error absoluto = |V_exacto - V_numérico|
+
+El error relativo porcentual se calcula mediante:
+
+    Error relativo (%) =
+    |V_exacto - V_numérico| / |V_exacto| · 100
+
+La función `ejecutar_analisis_error` vuelve a calcular los volúmenes
+numéricos utilizando exactamente los mismos límites y parámetros del inciso
+4.a. Luego calcula el volumen analítico exacto y compara cada aproximación
+con dicha referencia.
+
+Los resultados obtenidos son:
+
+Método                                      Error absoluto   Error relativo
+Newton-Cotes abierta, 3 puntos interiores   13.6418 m³       5.9061 %
+Simpson 1/3 compuesto, N = 12                0.0186 m³       0.0080 %
+
+El error relativo de Simpson es aproximadamente 0.0080 %, es decir, del
+orden de las centésimas de un uno por ciento. Por lo tanto, resulta
+prácticamente despreciable frente al error del método abierto para este
+problema. La diferencia exacta respecto de cero se debe a que Simpson con
+N = 12 sigue siendo una aproximación numérica y no la integral analítica.
+
+
+4.c) Análisis de discrepancias
+------------------------------
+
+La diferencia entre los resultados de ambos métodos no se debe a un cambio
+en el modelo físico, ya que ambos integran exactamente la misma función de
+caudal entre t = 0 y t = 3. La discrepancia proviene de la cantidad y la
+ubicación de los puntos utilizados por cada esquema de cuadratura.
+
+4.c.1) Morfología de la intensidad de lluvia
+---------------------------------------------
+
+La parte variable de la intensidad es:
+
+    g(t) = 45 t e^(-t)
+
+Su comportamiento puede analizarse derivando:
+
+    g'(t) = 45 e^(-t)(1 - t)
+
+Para t < 1, la derivada es positiva y la función crece. Para t > 1, la
+derivada es negativa y la función decrece. Por lo tanto, el máximo se
+produce en:
+
+    t = 1 hora
+
+El valor máximo de la intensidad es:
+
+    g(1) = 45/e ≈ 16.55 mm/h
+
+La curva presenta entonces un crecimiento rápido desde t = 0, alcanza un
+pico en t = 1 y luego inicia un decaimiento exponencial. Esta forma es
+asimétrica: el ascenso ocurre en una región relativamente corta, mientras
+que el descenso se prolonga hacia t = 3.
+
+Además:
+
+    g(0) = 0
+
+y en t = 3 todavía permanece un valor positivo:
+
+    g(3) = 135e^(-3) ≈ 6.72 mm/h
+
+La función no es simétrica alrededor del máximo y su curvatura cambia a lo
+largo del intervalo. Estas características son relevantes para la selección
+de los nodos de integración.
+
+4.c.2) Limitaciones del método abierto
+--------------------------------------
+
+El método abierto de tres puntos utiliza únicamente:
+
+    t = 0.75, 1.50, 2.25
+
+y omite deliberadamente los extremos t = 0 y t = 3. Esta elección produce
+varias consecuencias:
+
+- El valor nulo de la función en t = 0 no se incorpora explícitamente.
+- El valor positivo de la función en t = 3 tampoco se incorpora.
+- Solo hay un punto, t = 0.75, ubicado cerca de la zona de crecimiento
+  previo al máximo.
+- El máximo real, ubicado en t = 1, no coincide con ninguno de los nodos.
+- La zona de mayor variación se representa con muy pocas muestras.
+
+En otras palabras, tres puntos interiores resultan insuficientes para
+describir simultáneamente el ascenso rápido, el máximo y el decaimiento
+exponencial. Este submuestreo espacial provoca que la interpolación
+polinómica implícita en la fórmula no reproduzca adecuadamente la geometría
+de la curva en todo el intervalo.
+
+Los pesos de Newton-Cotes abierta son:
+
+    2, -1, 2
+
+Por lo tanto, el valor central aparece con peso negativo, mientras que los
+puntos laterales reciben pesos positivos. Para esta curva asimétrica, la
+combinación de estos valores puede producir una aproximación que se separa
+de la forma real y sobrestima el área integrada en la zona de decaimiento.
+Geométricamente, el polinomio asociado a los tres valores puede sobresalir
+por encima de la curva verdadera en regiones que no están muestreadas.
+
+El resultado es una sobreestimación evidente:
+
+    V_abierto = 244.6194 m³
+    V_exacto  = 230.9775 m³
+
+La diferencia es:
+
+    244.6194 - 230.9775 = 13.6419 m³ aproximadamente
+
+lo que corresponde a un error relativo cercano al 5.9 %.
+
+Este comportamiento no significa que la fórmula abierta esté mal
+implementada. La función utilizada es la fórmula correcta para Newton-Cotes
+abierta de tres puntos interiores. La discrepancia se explica por la baja
+resolución de la cuadratura aplicada a una función con un máximo desplazado y
+un decaimiento asimétrico.
+
+4.c.3) Ventajas del método cerrado de Simpson compuesto
+--------------------------------------------------------
+
+Simpson 1/3 compuesto utiliza N = 12 subintervalos y, por consiguiente, una
+malla de 13 nodos separados por h = 0.25 horas. A diferencia del método
+abierto, incluye los dos extremos:
+
+    t_0 = 0
+    t_12 = 3
+
+También utiliza varios puntos cercanos al máximo t = 1 y distribuye los
+nodos sobre toda la región de decaimiento. De esta forma, la malla describe
+mucho mejor la evolución temporal del caudal.
+
+La regla de Simpson aproxima la función mediante parábolas locales. Al usar
+muchos subintervalos, cada parábola actúa sobre una región pequeña y puede
+adaptarse mejor a la curvatura local. Los extremos anclan la aproximación y
+los puntos intermedios permiten representar tanto la zona de crecimiento
+como la zona de descenso.
+
+Por esta razón, la asimetría de la función queda absorbida de manera mucho
+más precisa por la sucesión de aproximaciones parabólicas. El resultado:
+
+    V_Simpson = 230.9590 m³
+
+queda muy próximo al valor analítico:
+
+    V_exacto = 230.9775 m³
+
+La diferencia es de solo:
+
+    |230.9775 - 230.9590| = 0.0186 m³ aproximadamente
+
+y el error relativo es:
+
+    0.0080 %
+
+Por lo tanto, Simpson compuesto logra una representación muy precisa de la
+curva con N = 12, mientras que el método abierto requiere una cantidad
+mayor de puntos o una subdivisión adicional para alcanzar una precisión
+similar.
+
+
+Conclusión
+----------
+
+El volumen de escorrentía se modeló a partir del área total de techos
+calculada en el ejercicio 1:
+
+    A_total = 7121.35 m²
+
+y de la función de caudal:
+
+    Q(t) = A_total · 0.90 · (45 t e^(-t)/1000)
+
+La aplicación de Newton-Cotes abierta de tres puntos interiores produjo:
+
+    V_abierto ≈ 244.62 m³
+
+La aplicación de Simpson 1/3 compuesto con N = 12 produjo:
+
+    V_Simpson ≈ 230.98 m³
+
+La integración analítica permitió determinar el valor de referencia:
+
+    V_exacto ≈ 230.9775 m³
+
+La comparación muestra que el método abierto presentó un error relativo de
+aproximadamente 5.9061 %, debido principalmente al uso de solo tres puntos
+interiores y a la omisión de los extremos en una función con máximo
+asimétrico y decaimiento exponencial. En cambio, Simpson 1/3 compuesto
+alcanzó un error relativo de aproximadamente 0.0080 %, gracias a que utiliza
+una malla más fina, incluye los extremos y aproxima localmente la curva
+mediante parábolas.
+
+En consecuencia, para este modelo de descarga pluvial, Simpson 1/3
+compuesto con N = 12 es claramente más adecuado que la fórmula abierta de
+tres puntos interiores. La solución analítica confirma la validez de esta
+conclusión y permite cuantificar de forma objetiva la precisión de cada
+método numérico.
