@@ -1,5 +1,8 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+from pathlib import Path
+from mpl_toolkits.mplot3d import Axes3D
 from src.cargar_imagenes_jpg import cargar_imagen
 
 
@@ -23,6 +26,7 @@ def calcular_vector_traslacion_fourier(num_imagen1, num_imagen2):
             - 'vector': Tupla (dx, dy)
             - 'confianza': Métrica de confianza basada en el pico de correlación (0-1)
             - 'pico_correlacion': Valor del pico máximo encontrado
+            - 'matriz_correlacion': Matriz de correlación espacial
     """
     
     # Cargar imágenes
@@ -81,8 +85,52 @@ def calcular_vector_traslacion_fourier(num_imagen1, num_imagen2):
         'vector': (float(dx_pico), float(dy_pico)),
         'confianza': float(confianza),
         'pico_correlacion': float(pico_max),
+        'matriz_correlacion': correlacion,
         'metodo': 'Espectro Cruzado Normalizado (FFT)'
     }
+
+
+def guardar_grafico_correlacion_3d(resultado_fourier):
+    """
+    Guarda un gráfico 3D de la matriz de correlación espacial.
+
+    La matriz se centra con fftshift para que el desplazamiento (0, 0)
+    quede en el centro del gráfico.
+
+    Args:
+        resultado_fourier (dict): Resultado de
+            calcular_vector_traslacion_fourier.
+    """
+    correlacion_centrada = np.fft.fftshift(
+        resultado_fourier['matriz_correlacion']
+    )
+    alto, ancho = correlacion_centrada.shape
+
+    desplazamientos_x = np.arange(ancho) - ancho // 2
+    desplazamientos_y = np.arange(alto) - alto // 2
+    x, y = np.meshgrid(desplazamientos_x, desplazamientos_y)
+
+    figura = plt.figure(figsize=(12, 9))
+    eje = figura.add_subplot(111, projection='3d')
+    eje.plot_surface(
+        x,
+        y,
+        correlacion_centrada,
+        cmap='viridis',
+        linewidth=0,
+        antialiased=True
+    )
+    eje.set_xlabel('Desplazamiento X')
+    eje.set_ylabel('Desplazamiento Y')
+    eje.set_zlabel('Amplitud de Correlación')
+
+    ruta_salida = Path(__file__).resolve().parent.parent / 'imagenes creadas'
+    ruta_salida.mkdir(parents=True, exist_ok=True)
+    archivo_salida = ruta_salida / 'inciso1_mapa_correlacion_3d.png'
+    figura.savefig(archivo_salida, bbox_inches='tight')
+    plt.close(figura)
+
+    print(f'Gráfico 3D de correlación guardado en: {archivo_salida}')
 
 
 def calcular_vector_traslacion_pixeles(num_imagen1, num_imagen2, rango_busqueda=50):

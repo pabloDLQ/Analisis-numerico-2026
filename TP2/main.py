@@ -57,6 +57,8 @@ def mostrar_resultado_inciso3(resultado):
 
 def menu_inciso1():
     """Menú para seleccionar el método de cálculo en el inciso 1"""
+    from src.inciso1 import guardar_grafico_correlacion_3d
+
     print("\n" + "="*60)
     print("INCISO 1 - Cálculo de Vector de Traslación")
     print("="*60)
@@ -72,6 +74,7 @@ def menu_inciso1():
         print("Método: Espectro Cruzado Normalizado (FFT)")
         resultado = calcular_vector_traslacion_fourier(1, 2)
         mostrar_resultado(resultado)
+        guardar_grafico_correlacion_3d(resultado)
         
     elif opcion == "2":
         print("\nCalculando vector de traslación entre imagen 1 y 2...")
@@ -87,6 +90,8 @@ def menu_inciso1():
 
 def menu_inciso2():
     """Menú para el inciso 2 - Detección de rotación"""
+    from src.inciso2 import guardar_grafico_rotacion
+
     print("\n" + "="*60)
     print("INCISO 2 - Detección de Ángulo de Rotación")
     print("="*60)
@@ -97,10 +102,13 @@ def menu_inciso2():
     
     resultado = calcular_angulo_rotacion(3, 4)
     mostrar_resultado_inciso2(resultado)
+    guardar_grafico_rotacion(resultado)
 
 
 def menu_inciso3():
     """Menú para el inciso 3 - Detección de escala"""
+    from src.inciso3 import guardar_grafico_escala
+
     print("\n" + "="*60)
     print("INCISO 3 - Detección de Factor de Escala")
     print("="*60)
@@ -111,12 +119,13 @@ def menu_inciso3():
 
     resultado = calcular_factor_escala(1, 5)
     mostrar_resultado_inciso3(resultado)
+    guardar_grafico_escala(resultado)
 
 
 def menu_inciso4():
     """Menú para el inciso 4 - Coherencia de fase y recuperación de imágenes"""
     from src.inciso4 import (
-        buscar_factor_k_optimo, visualizar_resultados_inciso4,
+        buscar_factor_k_optimo, guardar_grafico_comparativo_inciso4,
         guardar_imagenes_resultantes
     )
     
@@ -144,7 +153,7 @@ def menu_inciso4():
     print("ETAPA 3: GENERACIÓN DE GRÁFICOS COMPARATIVOS")
     print("="*70)
     print("\nGenerando visualización de resultados...")
-    fig = visualizar_resultados_inciso4(resultado_tif, resultado_jpg)
+    guardar_grafico_comparativo_inciso4(resultado_tif, resultado_jpg)
     
     guardar_imagenes_resultantes(resultado_tif, resultado_jpg)
     

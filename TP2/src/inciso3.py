@@ -1,5 +1,7 @@
 import numpy as np
 import cv2
+import matplotlib.pyplot as plt
+from pathlib import Path
 from scipy import ndimage
 from src.cargar_imagenes_jpg import cargar_imagen
 
@@ -110,6 +112,15 @@ def calcular_factor_escala(num_imagen1=1, num_imagen2=5, num_radios=None, num_an
     shift, response = cv2.phaseCorrelate(LP1_win, LP2_win)
     dx, dy = shift  # dx: columnas (ángulo), dy: filas (radio log)
 
+    # Correlación de fase explícita para conservarla y visualizarla
+    espectro_cruzado = np.fft.fft2(LP1_win) * np.conj(np.fft.fft2(LP2_win))
+    magnitud_espectro = np.abs(espectro_cruzado)
+    magnitud_espectro[magnitud_espectro == 0] = 1
+    espectro_cruzado_normalizado = espectro_cruzado / magnitud_espectro
+    matriz_correlacion = np.abs(
+        np.fft.fftshift(np.fft.ifft2(espectro_cruzado_normalizado))
+    )
+
     # Interpretación: un desplazamiento positivo en filas (dy) indica que LP2
     # está desplazado hacia abajo respecto a LP1 en la dimensión log-radio.
     # Dado que en coordenadas logarítmicas ln(r') = ln(r) + ln(k_effective),
@@ -124,6 +135,13 @@ def calcular_factor_escala(num_imagen1=1, num_imagen2=5, num_radios=None, num_an
     # Debido a la propiedad de escala: si una imagen espacial se escala por k,
     # su espectro se escala por 1/k. Por eso la estimación espacial es la inversa.
     k_espacial = float(1.0 / k_spectral) if k_spectral != 0 else float('inf')
+    f1_escalada = cv2.resize(
+        gray1,
+        None,
+        fx=k_espacial,
+        fy=k_espacial,
+        interpolation=cv2.INTER_LINEAR
+    )
 
     # Medir confianza (normalizar response a [0,1] aprox.)
     confianza = float(min(1.0, response))
@@ -135,10 +153,102 @@ def calcular_factor_escala(num_imagen1=1, num_imagen2=5, num_radios=None, num_an
         'ln_k': float(ln_k),
         'pico_correlacion': float(response),
         'confianza': confianza,
-        'metodo': 'FFT -> log-polar -> correlación de fase'
+        'metodo': 'FFT -> log-polar -> correlación de fase',
+        'log_polar1': LP1_n,
+        'log_polar2': LP2_n,
+        'matriz_correlacion': matriz_correlacion,
+        'f5_original': gray2,
+        'f1_escalada': f1_escalada
     }
 
     return resultado
+
+
+def guardar_grafico_escala(resultado):
+    """
+    Guarda un gráfico de cuatro paneles con el análisis del factor de escala.
+
+    Args:
+        resultado (dict): Resultado de calcular_factor_escala.
+    """
+    figura, ejes = plt.subplots(2, 2, figsize=(12, 10))
+
+    ejes[0, 0].imshow(
+        resultado['log_polar1'],
+        cmap='gray',
+        aspect='auto'
+    )
+    ejes[0, 0].set_title(r'Espectro Log-Polar ($f_1$)')
+    ejes[0, 0].set_xlabel(r'Ángulo $\theta$')
+    ejes[0, 0].set_ylabel(r'Log-Radio $\rho$')
+
+    ejes[0, 1].imshow(
+        resultado['log_polar2'],
+        cmap='gray',
+        aspect='auto'
+    )
+    ejes[0, 1].set_title(r'Espectro Log-Polar ($f_5$)')
+    ejes[0, 1].set_xlabel(r'Ángulo $\theta$')
+    ejes[0, 1].set_ylabel(r'Log-Radio $\rho$')
+
+    matriz_correlacion = resultado['matriz_correlacion']
+    indice_theta = np.unravel_index(
+        np.argmax(matriz_correlacion),
+        matriz_correlacion.shape
+    )[1]
+    corte_radial = matriz_correlacion[:, indice_theta]
+    desplazamientos_radiales = (
+        np.arange(len(corte_radial)) - len(corte_radial) // 2
+    )
+    desplazamiento_log_radio = resultado['desplazamiento_log_radio']
+    indice_pico = np.argmin(
+        np.abs(desplazamientos_radiales - desplazamiento_log_radio)
+    )
+
+    ejes[1, 0].plot(desplazamientos_radiales, corte_radial)
+    ejes[1, 0].axvline(
+        desplazamiento_log_radio,
+        color='red',
+        linestyle=':',
+        label=f'Pico: {desplazamiento_log_radio:.2f}'
+    )
+    ejes[1, 0].scatter(
+        desplazamientos_radiales[indice_pico],
+        corte_radial[indice_pico],
+        color='red',
+        zorder=3
+    )
+    ejes[1, 0].set_title('Correlación de Fase (Eje Radial)')
+    ejes[1, 0].set_xlabel(r'Desplazamiento $\Delta\rho$')
+    ejes[1, 0].set_ylabel('Correlación')
+    ejes[1, 0].legend()
+
+    f5_original = resultado['f5_original']
+    f1_escalada = resultado['f1_escalada']
+    alto = min(f5_original.shape[0], f1_escalada.shape[0])
+    ancho = min(f5_original.shape[1], f1_escalada.shape[1])
+    f5_recortada = f5_original[:alto, :ancho]
+    f1_escalada_recortada = f1_escalada[:alto, :ancho]
+    mitad = ancho // 2
+    comparacion = np.hstack((
+        f5_recortada[:, :mitad],
+        f1_escalada_recortada[:, mitad:]
+    ))
+
+    ejes[1, 1].imshow(comparacion, cmap='gray')
+    ejes[1, 1].set_title(
+        r'Validación: $f_5$ Original (Izq) vs $f_1$ Escalada (Der)'
+    )
+    ejes[1, 1].axis('off')
+
+    figura.tight_layout()
+    ruta_salida = Path(__file__).resolve().parent.parent / 'imagenes creadas'
+    ruta_salida.mkdir(parents=True, exist_ok=True)
+    archivo_salida = ruta_salida / 'inciso3_analisis_escala.png'
+    figura.savefig(archivo_salida, bbox_inches='tight')
+    plt.close(figura)
+
+    print(f'Gráfico de análisis de escala guardado en: {archivo_salida}')
 
 
 if __name__ == '__main__':

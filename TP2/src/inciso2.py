@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+from pathlib import Path
 from scipy import ndimage
 from src.cargar_imagenes_jpg import cargar_imagen
 
@@ -70,6 +72,7 @@ def calcular_angulo_rotacion_1d(espectro_polar1, espectro_polar2, num_radios_pro
             - 'angulo_rotacion': Ángulo de rotación en grados
             - 'pico_correlacion': Valor máximo de correlación
             - 'confianza': Métrica de confianza (0-1)
+            - 'array_correlacion': Señal de correlación angular 1D
     """
     
     num_radios, num_angulos = espectro_polar1.shape
@@ -129,7 +132,8 @@ def calcular_angulo_rotacion_1d(espectro_polar1, espectro_polar2, num_radios_pro
         'desplazamiento_theta': float(desplazamiento_theta),
         'angulo_rotacion': float(angulo_grados),
         'pico_correlacion': float(pico_correlacion),
-        'confianza': float(confianza)
+        'confianza': float(confianza),
+        'array_correlacion': correlacion
     }
 
 
@@ -271,7 +275,72 @@ def calcular_angulo_rotacion(num_imagen1=3, num_imagen2=4, metodo='1d'):
         'desplazamiento_theta': resultado_correlacion['desplazamiento_theta'],
         'pico_correlacion': resultado_correlacion['pico_correlacion'],
         'confianza': resultado_correlacion['confianza'],
-        'metodo': metodo_desc
+        'metodo': metodo_desc,
+        'espectro_cartesiano': magnitud_fft2_log,
+        'espectro_polar': espectro_polar2,
+        'array_correlacion': resultado_correlacion.get('array_correlacion')
     }
     
     return resultado
+
+
+def guardar_grafico_rotacion(resultado):
+    """
+    Guarda un gráfico de tres paneles con el análisis frecuencial de rotación.
+
+    Args:
+        resultado (dict): Resultado de calcular_angulo_rotacion.
+    """
+    array_correlacion = resultado['array_correlacion']
+    if array_correlacion is None:
+        raise ValueError(
+            'El gráfico de rotación requiere la correlación angular 1D.'
+        )
+
+    figura, ejes = plt.subplots(1, 3, figsize=(15, 5))
+
+    ejes[0].imshow(resultado['espectro_cartesiano'], cmap='gray')
+    ejes[0].set_title('Espectro Cartesiano (Rotado)')
+    ejes[0].axis('off')
+
+    ejes[1].imshow(
+        resultado['espectro_polar'],
+        cmap='gray',
+        aspect='auto',
+        extent=[0, 360, 0, resultado['espectro_polar'].shape[0]]
+    )
+    ejes[1].set_title('Mapeo a Coordenadas Polares')
+    ejes[1].set_xlabel(r'Ángulo $\theta$ (grados)')
+    ejes[1].set_ylabel(r'Radio $\rho$')
+
+    angulos = np.linspace(
+        0, 360, len(array_correlacion), endpoint=False
+    )
+    ejes[2].plot(angulos, array_correlacion)
+    angulo_rotacion = resultado['angulo_rotacion']
+    indice_pico = np.argmin(np.abs(angulos - angulo_rotacion))
+    ejes[2].axvline(
+        angulo_rotacion,
+        color='red',
+        linestyle=':',
+        label=f'Pico: {angulo_rotacion:.2f}°'
+    )
+    ejes[2].scatter(
+        angulos[indice_pico],
+        array_correlacion[indice_pico],
+        color='red',
+        zorder=3
+    )
+    ejes[2].set_title('Correlación Angular 1D')
+    ejes[2].set_xlabel('Ángulo (grados)')
+    ejes[2].set_xlim(0, 360)
+    ejes[2].legend()
+
+    figura.tight_layout()
+    ruta_salida = Path(__file__).resolve().parent.parent / 'imagenes creadas'
+    ruta_salida.mkdir(parents=True, exist_ok=True)
+    archivo_salida = ruta_salida / 'inciso2_analisis_rotacion.png'
+    figura.savefig(archivo_salida, bbox_inches='tight')
+    plt.close(figura)
+
+    print(f'Gráfico de análisis de rotación guardado en: {archivo_salida}')

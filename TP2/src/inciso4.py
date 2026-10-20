@@ -223,65 +223,74 @@ def buscar_factor_k_optimo(num_magnitud, num_fase, rango_k=(0.1, 5.0),
     }
 
 
-def visualizar_resultados_inciso4(resultado_tif, resultado_jpg):
+def guardar_grafico_comparativo_inciso4(resultado_tif, resultado_jpg):
     """
-    Visualiza resultados de la recuperación de imagen para ambos formatos.
-    
-    Muestra:
-    - Lado izquierdo: Resultado TIF (imagen + gráfico de búsqueda)
-    - Lado derecho: Resultado JPG (imagen + gráfico de búsqueda)
+    Guarda una comparativa de la coherencia de fase para TIF y JPG.
     
     Args:
         resultado_tif: Dict con resultado para formato TIF
         resultado_jpg: Dict con resultado para formato JPG
     """
-    
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle('Inciso 4: Recuperación de Imagen Objetivo con Coherencia de Fase', 
-                 fontsize=14, fontweight='bold')
-    
-    # ========== COLUMNA IZQUIERDA: TIF ==========
-    # Imagen recuperada TIF
-    axes[0, 0].imshow(resultado_tif['imagen_optima'], cmap='gray')
-    axes[0, 0].set_title(f"Imagen Recuperada (TIF)\nk óptimo = {resultado_tif['k_optimo']:.6f}", 
-                         fontsize=11, fontweight='bold')
-    axes[0, 0].axis('off')
-    
-    # Gráfico de búsqueda TIF
-    axes[1, 0].plot(resultado_tif['valores_k'], resultado_tif['nitideces'], 
-                   'b-', linewidth=2.5, label='Nitidez vs k')
-    axes[1, 0].axvline(resultado_tif['k_optimo'], color='r', linestyle='--', 
-                      linewidth=2.5, label=f'k óptimo = {resultado_tif["k_optimo"]:.4f}')
-    axes[1, 0].scatter([resultado_tif['k_optimo']], [resultado_tif['nitidez_maxima']], 
-                      color='r', s=150, zorder=5, marker='o')
-    axes[1, 0].set_xlabel('Factor de compresión k', fontsize=10)
-    axes[1, 0].set_ylabel('Nitidez (Frobenius norm)', fontsize=10)
-    axes[1, 0].set_title('Búsqueda del Factor k Óptimo (TIF)', fontsize=11)
-    axes[1, 0].legend(fontsize=10, loc='best')
-    axes[1, 0].grid(True, alpha=0.3)
-    
-    # ========== COLUMNA DERECHA: JPG ==========
-    # Imagen recuperada JPG
-    axes[0, 1].imshow(resultado_jpg['imagen_optima'], cmap='gray')
-    axes[0, 1].set_title(f"Imagen Recuperada (JPG)\nk óptimo = {resultado_jpg['k_optimo']:.6f}", 
-                         fontsize=11, fontweight='bold')
-    axes[0, 1].axis('off')
-    
-    # Gráfico de búsqueda JPG
-    axes[1, 1].plot(resultado_jpg['valores_k'], resultado_jpg['nitideces'], 
-                   'g-', linewidth=2.5, label='Nitidez vs k')
-    axes[1, 1].axvline(resultado_jpg['k_optimo'], color='r', linestyle='--', 
-                      linewidth=2.5, label=f'k óptimo = {resultado_jpg["k_optimo"]:.4f}')
-    axes[1, 1].scatter([resultado_jpg['k_optimo']], [resultado_jpg['nitidez_maxima']], 
-                      color='r', s=150, zorder=5, marker='o')
-    axes[1, 1].set_xlabel('Factor de compresión k', fontsize=10)
-    axes[1, 1].set_ylabel('Nitidez (Frobenius norm)', fontsize=10)
-    axes[1, 1].set_title('Búsqueda del Factor k Óptimo (JPG)', fontsize=11)
-    axes[1, 1].legend(fontsize=10, loc='best')
-    axes[1, 1].grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    return fig
+
+    fig = plt.figure(figsize=(14, 10))
+    gs = fig.add_gridspec(2, 2, height_ratios=[1.2, 1])
+
+    eje_curvas = fig.add_subplot(gs[0, :])
+    eje_curvas.plot(
+        resultado_tif['valores_k'],
+        resultado_tif['nitideces'],
+        color='blue',
+        linewidth=2.5,
+        label=f"TIF (k óptimo = {resultado_tif['k_optimo']:.4f})"
+    )
+    eje_curvas.plot(
+        resultado_jpg['valores_k'],
+        resultado_jpg['nitideces'],
+        color='red',
+        linestyle='--',
+        linewidth=2.5,
+        label=f"JPG (k óptimo = {resultado_jpg['k_optimo']:.4f})"
+    )
+    eje_curvas.scatter(
+        resultado_tif['k_optimo'],
+        resultado_tif['nitidez_maxima'],
+        color='blue',
+        s=100,
+        zorder=5
+    )
+    eje_curvas.scatter(
+        resultado_jpg['k_optimo'],
+        resultado_jpg['nitidez_maxima'],
+        color='red',
+        s=100,
+        zorder=5
+    )
+    eje_curvas.set_xlabel(r'Factor de compresión de fase ($k$)')
+    eje_curvas.set_ylabel('Nitidez (Norma de Frobenius)')
+    eje_curvas.set_title(
+        'Efecto de la Compresión en la Coherencia de Fase (TIF vs JPG)'
+    )
+    eje_curvas.legend()
+    eje_curvas.grid(True, alpha=0.3)
+
+    eje_tif = fig.add_subplot(gs[1, 0])
+    eje_tif.imshow(resultado_tif['imagen_optima'], cmap='gray')
+    eje_tif.set_title('Reconstrucción TIF (Sin pérdida)')
+    eje_tif.axis('off')
+
+    eje_jpg = fig.add_subplot(gs[1, 1])
+    eje_jpg.imshow(resultado_jpg['imagen_optima'], cmap='gray')
+    eje_jpg.set_title('Reconstrucción JPG (Con artefactos de compresión)')
+    eje_jpg.axis('off')
+
+    fig.tight_layout()
+    ruta_salida = Path(__file__).resolve().parent.parent / 'imagenes creadas'
+    ruta_salida.mkdir(parents=True, exist_ok=True)
+    archivo_salida = ruta_salida / 'inciso4_comparativa_fase.png'
+    fig.savefig(archivo_salida, bbox_inches='tight')
+    plt.close(fig)
+
+    print(f'Comparativa de coherencia de fase guardada en: {archivo_salida}')
 
 
 def guardar_imagenes_resultantes(resultado_tif, resultado_jpg):
