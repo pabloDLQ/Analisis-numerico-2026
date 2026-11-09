@@ -1,5 +1,7 @@
+# Path se usa para comprobar y construir las rutas de imágenes.
 from pathlib import Path
 
+# Matplotlib genera la imagen anotada y NumPy procesa coordenadas.
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -16,18 +18,23 @@ def dibujar_techos_sobre_mapa(
     ruta_salida: Path,
 ) -> None:
     """Dibuja los techos y sus superficies sobre la imagen satelital."""
+    # Se verifica que exista la imagen base antes de crear el gráfico.
     if not ruta_imagen.is_file():
         raise FileNotFoundError(
             f"No se encontró la imagen satelital en: {ruta_imagen}"
         )
 
+    # Se crea la carpeta de salida si todavía no existe.
     ruta_salida.parent.mkdir(parents=True, exist_ok=True)
+    # Se carga la imagen y se prepara un eje con el mismo sistema de coordenadas.
     imagen = plt.imread(ruta_imagen)
     fig, ax = plt.subplots(figsize=(12, 8))
     ax.imshow(imagen, origin="upper")
 
+    # Cada edificio se dibuja con un color distinto para facilitar su lectura.
     colores = ("tab:red", "tab:blue", "tab:green", "tab:orange")
     for indice, (clave, contorno) in enumerate(techos.items()):
+        # Se obtienen el contorno cerrado, su área y su centroide.
         puntos = parametrizar_contorno(contorno)[1]
         area_m2 = areas_m2[clave]
         centroide_x, centroide_y = centroide_contorno(contorno)
@@ -36,6 +43,7 @@ def dibujar_techos_sobre_mapa(
         y_max = np.max(puntos[:, 1])
         margen_rotulo = max(15.0, 0.05 * (y_max - y_min))
 
+        # Se elige la posición de la etiqueta para evitar cubrir cada edificio.
         if indice == 0:
             # En la imagen, el eje y crece hacia abajo: debajo del
             # edificio corresponde a un valor de y mayor.
@@ -49,6 +57,7 @@ def dibujar_techos_sobre_mapa(
             posicion_rotulo = (centroide_x, centroide_y)
             alineacion_vertical = "center"
 
+        # Se rellena el polígono del techo y se dibuja su borde.
         ax.fill(
             puntos[:, 0],
             puntos[:, 1],
@@ -58,6 +67,7 @@ def dibujar_techos_sobre_mapa(
             linewidth=2,
             label=f"Edificio {indice + 1}",
         )
+        # Se agrega una etiqueta con el número del edificio y su superficie.
         ax.text(
             *posicion_rotulo,
             f"Edificio {indice + 1}\n{area_m2:.2f} m²",
@@ -73,12 +83,14 @@ def dibujar_techos_sobre_mapa(
             },
         )
 
+    # Se configuran títulos, ejes, leyenda y proporción del gráfico.
     ax.set_title("Superficie de los techos sobre imagen satelital")
     ax.set_xlabel("Coordenada x (píxeles)")
     ax.set_ylabel("Coordenada y (píxeles)")
     ax.legend()
     ax.set_aspect("equal")
     plt.tight_layout()
+    # Se guarda la figura en alta resolución y se libera la memoria.
     fig.savefig(ruta_salida, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"Imagen guardada en: {ruta_salida}")

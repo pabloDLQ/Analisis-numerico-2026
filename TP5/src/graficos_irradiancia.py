@@ -1,5 +1,7 @@
+# Path permite definir la carpeta de resultados.
 from pathlib import Path
 
+# Matplotlib dibuja las tablas y curvas; NumPy genera la malla temporal.
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -11,6 +13,7 @@ from .calculo_irradiancia_diaria import (
 )
 
 
+# Carpeta de resultados correspondiente al ejercicio de irradiancia.
 RUTA_RESULTADOS = (
     Path(__file__).parent.parent
     / "resultados"
@@ -20,6 +23,7 @@ RUTA_RESULTADOS = (
 
 def comparar_escenarios_nubosidad() -> None:
     """Genera la tabla de energía para los escenarios de nubosidad."""
+    # Se comparan distintas cantidades de intervalos para observar convergencia.
     lista_N = [10, 50, 100, 500, 1000, 5000]
     filas_tabla = []
 
@@ -31,6 +35,7 @@ def comparar_escenarios_nubosidad() -> None:
     )
     print("-" * 72)
 
+    # Se integra cada escenario y se almacenan sus resultados para la tabla.
     for cantidad_intervalos in lista_N:
         if cantidad_intervalos % 2 != 0:
             cantidad_intervalos += 1
@@ -61,9 +66,11 @@ def comparar_escenarios_nubosidad() -> None:
             f"{energia_oscilante:30.9f}"
         )
 
+    # Se crea la carpeta de salida y se prepara la tabla como una figura.
     RUTA_RESULTADOS.mkdir(parents=True, exist_ok=True)
     ruta_salida = RUTA_RESULTADOS / "comparacion_nubosidad.png"
 
+    # Se construye una tabla visual con los valores calculados.
     figura, eje = plt.subplots(figsize=(12, 3.5))
     eje.axis("off")
     tabla = eje.table(
@@ -87,6 +94,7 @@ def comparar_escenarios_nubosidad() -> None:
         pad=18,
     )
     figura.tight_layout()
+    # Se guarda la tabla y se cierra la figura.
     figura.savefig(ruta_salida, dpi=300, bbox_inches="tight")
     plt.close(figura)
     print(f"Tabla guardada en: {ruta_salida}")
@@ -94,11 +102,14 @@ def comparar_escenarios_nubosidad() -> None:
 
 def generar_perfil_diario_irradiancia() -> None:
     """Genera el perfil continuo de irradiancia de los tres escenarios."""
+    # Se muestrea el intervalo diurno para dibujar perfiles continuos.
     tiempo = np.linspace(6.0, 20.0, 2001)
 
+    # Se prepara la ruta de salida y el lienzo del gráfico.
     RUTA_RESULTADOS.mkdir(parents=True, exist_ok=True)
     ruta_salida = RUTA_RESULTADOS / "perfil_diario_irradiancia.png"
 
+    # Se grafica la irradiancia de cada condición de nubosidad.
     figura, eje = plt.subplots(figsize=(12, 6))
     eje.plot(
         tiempo,
@@ -121,6 +132,7 @@ def generar_perfil_diario_irradiancia() -> None:
         color="tab:green",
         linewidth=1.5,
     )
+    # Se agregan etiquetas, límites, grilla y leyenda.
     eje.set_title("Perfil diario de irradiancia")
     eje.set_xlabel("Hora del día, t (h)")
     eje.set_ylabel("Irradiancia solar (W/m²)")
@@ -129,6 +141,7 @@ def generar_perfil_diario_irradiancia() -> None:
     eje.grid(True, alpha=0.3)
     eje.legend()
     figura.tight_layout()
+    # Se guarda el perfil y se libera la figura.
     figura.savefig(ruta_salida, dpi=300, bbox_inches="tight")
     plt.close(figura)
     print(f"Perfil diario guardado en: {ruta_salida}")
