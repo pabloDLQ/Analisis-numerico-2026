@@ -1,0 +1,16 @@
+Convergencia temporal del Ítem 2.b
+dt_max = 0.338983051 s; método: RK4; t* = 40 s
+dt [s] | error posición [m]
+0.25000000 | 3.445406896330e-06
+0.12500000 | 2.638392125487e-07
+0.06250000 | 1.790084822043e-08
+0.03125000 | 1.145389929018e-09
+0.01562500 | 7.165022191272e-11
+Orden experimental p = 3.89543637; orden teórico RK4 = 4
+
+Interpretación de la convergencia temporal del Ítem 2.b:
+La pendiente p se obtiene ajustando log(error) frente a log(dt).
+La malla espacial permanece fija, por lo que se aísla el error temporal.
+Orden experimental p = 3.89543637; orden teórico de RK4 = 4.
+El valor p aprox. 3.90 es consistente con 4: t*=40 s < 50 s, por lo que la fuente todavía es suave y no interviene el apagado abrupto.
+La estabilidad explícita exige dt < dt_max aprox. 0.339 s; todos los pasos ensayados cumplen estrictamente esa restricción.

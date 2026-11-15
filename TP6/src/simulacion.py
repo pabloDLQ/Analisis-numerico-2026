@@ -97,12 +97,12 @@ def ejecutar_simulacion_1b():
         figura.colorbar(ultimo_contorno, ax=ejes.ravel().tolist(), label="C(x, y, t)")
     # Se calcula la carpeta raíz del proyecto a partir de la carpeta src actual.
     directorio_raiz = DIRECTORIO_SRC.parent
-    # Se define la carpeta destinada a almacenar las figuras generadas.
-    directorio_graficos = directorio_raiz / "graficos"
-    # Se crea la carpeta de gráficos y sus padres si todavía no existen.
-    directorio_graficos.mkdir(parents=True, exist_ok=True)
+    # Se define la carpeta de resultados del ítem 1.
+    directorio_resultados = directorio_raiz / "resultados" / "item1"
+    # Se crea la carpeta de resultados y sus padres si todavía no existen.
+    directorio_resultados.mkdir(parents=True, exist_ok=True)
     # Se define el nombre solicitado para la imagen de la simulación 1.b.
-    ruta_salida = directorio_graficos / "1b_evolucion_concentracion_y_trayectorias.png"
+    ruta_salida = directorio_resultados / "1b_evolucion_concentracion_y_trayectorias.png"
     # Se guarda la figura en formato PNG con resolución adecuada para informes.
     figura.savefig(ruta_salida, dpi=200, bbox_inches="tight")
     # Se cierra la figura para liberar memoria y evitar mostrarla por pantalla.

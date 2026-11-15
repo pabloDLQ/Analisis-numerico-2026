@@ -241,7 +241,7 @@ El resultado es una figura de dos filas por tres columnas, que permite observar
 simultaneamente la evolucion de la nube y la persecucion del dron. La imagen
 se guarda como:
 
-graficos/1b_evolucion_concentracion_y_trayectorias.png
+resultados/item1/1b_evolucion_concentracion_y_trayectorias.png
 
 Esta salida responde directamente a la visualizacion pedida en el inciso 1.b.
 
@@ -306,7 +306,7 @@ La funcion graficar_curvas_error genera dos paneles log-log, uno para t = 15 s
 y otro para t = 60 s. En cada panel muestra las curvas de Euler y RK4, junto
 con sus pendientes experimentales. La imagen se guarda como:
 
-graficos/1c_convergencia_errores.png
+resultados/item1/1c_convergencia_errores.png
 
 
 6. RESPUESTA SINTETICA A LA CONSIGNA 1

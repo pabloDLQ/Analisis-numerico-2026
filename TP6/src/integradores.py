@@ -7,11 +7,21 @@ ningún solucionador automático de ecuaciones diferenciales.
 import numpy as np
 
 
-def integrar_edo(funcion_derivada, t_span, X0, dt, metodo):
+def integrar_edo(
+    funcion_derivada,
+    t_span,
+    X0,
+    dt,
+    metodo,
+    post_paso=None,
+    condicion_parada=None,
+):
     """Integra ``dX/dt = funcion_derivada(t, X)`` en un intervalo dado.
 
     El último paso se ajusta si es necesario para que ``t_out`` termine
-    exactamente en el extremo derecho de ``t_span``.
+    exactamente en el extremo derecho de ``t_span``. ``post_paso`` permite
+    proyectar el estado después de cada paso y ``condicion_parada`` permite
+    finalizar anticipadamente la integración.
     """
 
     # Se convierten los extremos a escalares reales para evitar aritmética entera.
@@ -87,10 +97,16 @@ def integrar_edo(funcion_derivada, t_span, X0, dt, metodo):
             tiempo_actual = t_final
         # Se guarda el nuevo estado sin aliasar la memoria del estado anterior.
         estado_actual = np.asarray(estado_nuevo, dtype=float)
+        if post_paso is not None:
+            estado_actual = np.asarray(post_paso(tiempo_actual, estado_actual), dtype=float)
+            if estado_actual.shape != estado_inicial.shape:
+                raise ValueError("post_paso debe devolver un estado con la misma forma que X0.")
         # Se agrega el tiempo alcanzado a la salida.
         tiempos.append(tiempo_actual)
         # Se agrega el estado alcanzado a la salida.
         estados.append(estado_actual.copy())
+        if condicion_parada is not None and bool(condicion_parada(tiempo_actual, estado_actual)):
+            break
 
     # Se convierte la lista de tiempos en un arreglo NumPy unidimensional.
     t_out = np.asarray(tiempos, dtype=float)

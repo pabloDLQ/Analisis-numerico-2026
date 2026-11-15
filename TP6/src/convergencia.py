@@ -217,12 +217,12 @@ def graficar_curvas_error(dt_lista, errores, ordenes, t1, t2):
 
     # Se calcula la raíz del proyecto a partir de la carpeta src.
     directorio_raiz = DIRECTORIO_SRC.parent
-    # Se define la carpeta de salida para los gráficos.
-    directorio_graficos = directorio_raiz / "graficos"
-    # Se crea la carpeta de salida si todavía no existe.
-    directorio_graficos.mkdir(parents=True, exist_ok=True)
+    # Se define la carpeta de resultados del ítem 1.
+    directorio_resultados = directorio_raiz / "resultados" / "item1"
+    # Se crea la carpeta de resultados si todavía no existe.
+    directorio_resultados.mkdir(parents=True, exist_ok=True)
     # Se define la ruta del gráfico solicitado.
-    ruta_salida = directorio_graficos / "1c_convergencia_errores.png"
+    ruta_salida = directorio_resultados / "1c_convergencia_errores.png"
     # Se guarda la figura sin abrir ninguna ventana.
     figura.savefig(ruta_salida, dpi=200, bbox_inches="tight")
     # Se cierra la figura para liberar los recursos de Matplotlib.

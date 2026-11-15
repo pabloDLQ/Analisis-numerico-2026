@@ -1,0 +1,585 @@
+TRABAJO PRACTICO 6 - EXPLICACION DE LA IMPLEMENTACION
+Consigna 2: modelo con EDPs de adveccion-difusion-reaccion acoplado
+             a la navegacion de un dron
+
+Este archivo explica como se organiza el codigo del Item 2 y como cada parte
+responde a los incisos 2.a y 2.b de la consigna. Se describe el modelo
+continuo, su discretizacion espacial y temporal, el acoplamiento con el dron,
+los criterios de estabilidad, los resultados numericos y los archivos
+generados por el programa.
+
+
+1. ORGANIZACION GENERAL DEL ITEM 2
+
+El Item 2 se implementa con cuatro modulos nuevos dentro de src y se integra
+al menu de main.py:
+
+- main.py: presenta las opciones para ejecutar el Item 2.a, el Item 2.b o
+  ambos incisos completos.
+- src/operadores_espaciales.py: construye la malla, centraliza las constantes
+  fisicas, impone las condiciones de contorno, calcula los operadores de
+  difusion y adveccion y evalua integrales mediante Simpson bidimensional.
+- src/sistema_edp.py: define el estado inicial, el lado derecho del sistema
+  semidiscreto de ecuaciones diferenciales y las funciones de proyeccion de
+  contorno y deteccion de captura.
+- src/simulacion_edp.py: ejecuta el inciso 2.a, integra las distintas
+  resoluciones temporales, interpola el instante de captura y genera los
+  mapas de concentracion con las trayectorias.
+- src/convergencia_edp.py: ejecuta el inciso 2.b, calcula la referencia,
+  mide los errores de posicion, ajusta el orden experimental y genera la
+  grafica log-log.
+- src/integradores.py: contiene el integrador RK4 implementado desde cero.
+  Para el Item 2 se utilizan tambien sus callbacks post_paso y
+  condicion_parada.
+
+El programa utiliza solamente numpy, matplotlib, pathlib y dataclasses. No se
+utiliza scipy ni ningun solucionador automatico de EDOs o EDPs. La EDP se
+transforma primero en un sistema grande de EDOs mediante el metodo de lineas
+y luego se integra con el RK4 propio del proyecto.
+
+Todas las salidas del Item 2 se guardan en:
+
+resultados/item2/
+
+
+2. ARCHIVO main.py: EJECUCION DEL PROGRAMA
+
+main.py importa:
+
+- ejecutar_simulacion_2a, que resuelve el inciso 2.a;
+- ejecutar_convergencia_edp, que resuelve el inciso 2.b;
+- las funciones existentes del Item 1, que permanecen disponibles.
+
+Al seleccionar el Item 2, el menu ofrece:
+
+1. Simulacion y captura (Item 2.a).
+2. Convergencia temporal (Item 2.b).
+3. Ejecucion completa de ambos incisos.
+
+La opcion 1 llama a ejecutar_simulacion_2a(). La opcion 2 llama a
+ejecutar_convergencia_edp(). La opcion 3 ejecuta ambas funciones en orden.
+El mensaje que informa que los resultados fueron guardados solo se muestra
+cuando la opcion ingresada es valida.
+
+En el menu del Item 1, la opcion de ejecucion completa calcula
+calcular_errores_y_ordenes() una sola vez y reutiliza sus datos para imprimir
+los resultados y generar la figura. Esto evita repetir una integracion
+costosa y no modifica los resultados del Item 1.
+
+
+3. MODELO CONTINUO DE LA CONCENTRACION
+
+El dominio espacial pedido es:
+
+Omega = [0,130] x [0,130] m
+
+La concentracion C(x,y,t), medida en g/m3, satisface:
+
+partial C / partial t =
+    D (partial^2 C / partial x^2 + partial^2 C / partial y^2)
+    - uv partial C / partial x
+    - vv partial C / partial y
+    - Vm C/(Km+C)
+
+Las constantes fisicas implementadas en operadores_espaciales.py son:
+
+- D  = 0.5 m2/s: coeficiente de difusion;
+- UV = 0.1 m/s: componente horizontal del viento;
+- VV = 0.8 m/s: componente vertical del viento;
+- KM = 20.0 g/m3: constante de Michaelis-Menten;
+- VM = 1.0 g/(s m3): velocidad maxima de reaccion;
+- C_PICO = 105.0 g/m3: valor maximo de las fuentes de entrada;
+- SIGMA_IN = 6.0 m: ancho de los perfiles gaussianos de entrada;
+- T_INYECCION = 50.0 s: instante de apagado de las fuentes.
+
+La funcion crear_malla() construye 131 nodos en cada eje:
+
+x = linspace(0,130,131)
+y = linspace(0,130,131)
+
+Por lo tanto:
+
+dx = dy = 1.0 m
+Nx = Ny = 131
+
+La llamada meshgrid(x,y) produce las matrices X e Y. En estas matrices, cada
+fila corresponde a un valor fijo de y y cada columna corresponde a un valor
+fijo de x. Esta organizacion es la que utilizan los rebanados de las
+funciones espaciales:
+
+- C[1:-1,1:-1]: nodos interiores;
+- C[1:-1,2:]: vecino hacia x positivo;
+- C[1:-1,:-2]: vecino hacia x negativo;
+- C[2:,1:-1]: vecino hacia y positivo;
+- C[:-2,1:-1]: vecino hacia y negativo.
+
+La concentracion inicial del interior es nula:
+
+C(x,y,0) = 0
+
+En el estado implementado los valores iniciales de las fronteras se proyectan
+durante la primera evaluacion de la EDP, de acuerdo con las condiciones
+impuestas por la consigna.
+
+
+4. CONDICIONES DE CONTORNO
+
+La funcion aplicar_condiciones_contorno(C,t,malla) se encuentra en
+operadores_espaciales.py. Recibe el campo bidimensional, el tiempo actual y
+la malla para utilizar directamente las coordenadas fisicas x e y.
+
+4.1. Fronteras de entrada
+
+La frontera x=0 es la primera columna, resultado[:,0]. Mientras
+t <= T_INYECCION se impone:
+
+C(0,y,t) = C_PICO exp(-y^2/(2 SIGMA_IN^2))
+
+El vector de valores se calcula con malla.y, porque la columna x=0 varia
+verticalmente a lo largo de los distintos valores de y.
+
+La frontera y=0 es la primera fila, resultado[0,:]. Mientras
+t <= T_INYECCION se impone:
+
+C(x,0,t) = C_PICO exp(-x^2/(2 SIGMA_IN^2))
+
+El vector de valores se calcula con malla.x, porque la fila y=0 varia
+horizontalmente a lo largo de los distintos valores de x.
+
+Para t > 50 s ambas fuentes se apagan y las dos fronteras se fijan en cero.
+El uso de T_INYECCION y de las coordenadas de la malla evita repetir numeros
+magicos y hace explicita la relacion entre indices de matriz y fronteras
+fisicas.
+
+4.2. Fronteras de salida
+
+La frontera x=130 es la ultima columna. Se impone flujo normal nulo
+copiando el nodo interior adyacente:
+
+resultado[:,-1] = resultado[:,-2]
+
+Esto aproxima:
+
+partial C/partial x (130,y,t) = 0
+
+La frontera y=130 es la ultima fila:
+
+resultado[-1,:] = resultado[-2,:]
+
+Esto aproxima:
+
+partial C/partial y (x,130,t) = 0
+
+La funcion devuelve una copia del campo para no modificar directamente el
+estado almacenado por el integrador.
+
+
+5. DISCRETIZACION ESPACIAL
+
+5.1. Difusion: diferencias centradas
+
+La funcion calcular_difusion() utiliza el laplaciano de cinco puntos. En cada
+nodo interior (i,j):
+
+Laplaciano(C)_i,j =
+    (C_i,j+1 - 2 C_i,j + C_i,j-1)/dx^2
+    + (C_i+1,j - 2 C_i,j + C_i-1,j)/dy^2
+
+El codigo escribe esta expresion de forma vectorizada:
+
+salida[1:-1,1:-1] =
+    (C[1:-1,2:] - 2 C[1:-1,1:-1] + C[1:-1,:-2])/dx^2
+    +
+    (C[2:,1:-1] - 2 C[1:-1,1:-1] + C[:-2,1:-1])/dy^2
+
+El esquema es centrado y de orden espacial O(h^2). No se recorren los nodos
+con bucles de Python: las operaciones se realizan sobre bloques de NumPy.
+
+5.2. Adveccion: esquema upwind
+
+Como UV y VV son positivos, la informacion entra desde los vecinos con menor
+coordenada. Por eso se utiliza un esquema regresivo:
+
+partial C/partial x aprox (C_i,j - C_i,j-1)/dx
+partial C/partial y aprox (C_i,j - C_i-1,j)/dy
+
+La funcion calcular_adveccion_upwind() calcula la suma:
+
+UV (C_i,j-C_i,j-1)/dx + VV (C_i,j-C_i-1,j)/dy
+
+El signo negativo de la ecuacion diferencial se incorpora posteriormente en
+derivadas_sistema_edp(), donde aparece:
+
+derivada_C = difusion - adveccion + reaccion
+
+El upwind es de primer orden espacial O(h), pero es robusto para velocidades
+positivas y evita oscilaciones espurias tipicas de un esquema centrado en
+problemas convectivos.
+
+5.3. Reaccion de Michaelis-Menten
+
+El termino reactivo se calcula nodo a nodo mediante:
+
+reaccion = -VM C/(KM+C)
+
+En el codigo se utiliza max(C,0) en el denominador para impedir que una
+eventual pequena fluctuacion negativa de la aproximacion produzca un
+denominador no fisico. Para las concentraciones no negativas obtenidas en
+esta simulacion, la expresion coincide con la formula de la consigna.
+
+
+6. CUADRATURA, MASA Y BARICENTRO
+
+Para obtener el centro de la pluma se necesita integrar C y sus momentos:
+
+M_tot(t) = integral integral Omega C(x,y,t) dx dy
+
+xc(t) = [integral integral Omega x C dx dy]/M_tot(t)
+yc(t) = [integral integral Omega y C dx dy]/M_tot(t)
+
+La funcion crear_malla() genera los pesos unidimensionales de Simpson:
+
+1, 4, 2, 4, 2, ..., 4, 1
+
+Luego construye el producto exterior de los pesos de x y de y y multiplica
+por dx*dy/9. El resultado es la matriz pesos_simpson, que representa la regla
+de Simpson compuesta bidimensional.
+
+La funcion calcular_baricentro() calcula:
+
+masa = sum(pesos_simpson * C)
+xc = sum(pesos_simpson * X * C)/masa
+yc = sum(pesos_simpson * Y * C)/masa
+
+Si la masa es menor o igual que la precision de maquina, devuelve
+(0,0,0) para evitar una division por cero. Esta salvaguarda es necesaria en
+el estado inicial, donde el interior comienza sin concentracion.
+
+
+7. METODO DE LINEAS Y ESTADO ACOPLADO
+
+El metodo de lineas transforma la EDP espacialmente discretizada en un
+sistema de EDOs. La matriz 131x131 de concentraciones se aplana en un vector
+de longitud:
+
+131*131 = 17161
+
+Al final se agregan las dos coordenadas del dron. Por lo tanto, el estado
+completo utilizado por integrar_edo tiene longitud:
+
+17161 + 2 = 17163
+
+El estado se organiza como:
+
+X(t) = [C_0(t), C_1(t), ..., C_17160(t), xd(t), yd(t)]
+
+La funcion crear_estado_inicial(malla), en sistema_edp.py, genera:
+
+- un vector de 17161 ceros para la concentracion;
+- las coordenadas iniciales del dron (115,115) m;
+- la concatenacion de ambos bloques.
+
+La funcion derivadas_sistema_edp(t,estado,malla) realiza los siguientes pasos:
+
+1. Convierte el estado en un vector real y verifica que tenga 17163 entradas.
+2. Separa las entradas de C y las coordenadas xd, yd.
+3. Reconstruye C como una matriz de 131x131.
+4. Aplica las condiciones de contorno correspondientes al tiempo t.
+5. Calcula difusion, adveccion y reaccion.
+6. Combina los terminos para construir dC/dt.
+7. Calcula el baricentro mediante la cuadratura de Simpson.
+8. Construye el vector desde el dron hasta el baricentro.
+9. Normaliza ese vector y asigna la velocidad de crucero del dron.
+10. Fuerza la derivada de C a cero en las fronteras.
+11. Aplana dC/dt y concatena las dos derivadas de la posicion del dron.
+
+La ley de navegacion implementada es:
+
+drd/dt = vd (rc-rd)/||rc-rd||
+
+con:
+
+vd = 1.0 m/s
+rd(0) = (115,115) m
+
+Si la distancia es numericamente cero, el codigo devuelve velocidad nula
+para evitar normalizar un vector nulo. La funcion distancia_captura() compara
+la distancia calculada con:
+
+Rcaptura = 1.2 m
+
+
+8. PROYECCION DE LAS CONDICIONES DESPUES DE CADA PASO
+
+El integrador integrar_edo() se mantiene compatible con el Item 1 y acepta
+dos callbacks opcionales:
+
+- post_paso(t,estado): proyecta el nuevo estado despues de cada paso;
+- condicion_parada(t,estado): permite detener la integracion antes de t_final.
+
+Para el Item 2, post_paso llama a proyectar_contorno(). Esta funcion
+reconstruye la matriz C, impone nuevamente Dirichlet en x=0 e y=0 y Neumann
+homogenea en x=130 e y=130, y vuelve a aplanar el campo.
+
+Esta proyeccion es importante porque RK4 produce estados intermedios y estados
+finales que deben respetar exactamente las fronteras prescritas. Tambien
+permite representar correctamente el apagado de la fuente en t=50 s.
+
+La condicion de parada se activa solo en el inciso 2.a. Una vez que el estado
+supera el umbral de captura, integrar_edo guarda ese estado y finaliza la
+corrida.
+
+
+9. INCISO 2.a: SIMULACION, CAPTURA Y MAPAS
+
+La funcion ejecutar_simulacion_2a() realiza el procedimiento pedido:
+
+1. Construye una unica malla espacial.
+2. Calcula dt_max y verifica que todos los pasos elegidos sean menores.
+3. Integra con RK4 para:
+
+   dt = 0.25 s
+   dt = 0.10 s
+   dt = 0.05 s
+
+4. Detiene cada corrida cuando la distancia al baricentro es menor o igual a
+   1.2 m.
+5. Guarda el tiempo y las coordenadas de captura para cada paso.
+6. Reutiliza la corrida dt=0.05 para construir la figura, sin integrarla dos
+   veces.
+
+9.1. Restriccion de estabilidad
+
+El codigo calcula:
+
+dt_max =
+  1/[UV/dx + VV/dy + 2D(1/dx^2 + 1/dy^2) + VM/KM]
+
+Con los valores del problema:
+
+dt_max = 0.338983051 s aproximadamente 0.339 s
+
+Los tres pasos utilizados cumplen estrictamente:
+
+0.25 < 0.338983051
+0.10 < 0.338983051
+0.05 < 0.338983051
+
+Esta comprobacion se realiza antes de iniciar las simulaciones. De este modo
+se respetan las restricciones de estabilidad de la discretizacion explicita.
+
+9.2. Interpolacion del instante de captura
+
+La integracion solo conoce la distancia en los tiempos discretos t_(n-1) y
+t_n. Cuando en t_n se detecta que la distancia ya es menor o igual que 1.2,
+el codigo interpola linealmente entre ambos estados.
+
+Si d0 y d1 son las distancias anterior y posterior, se calcula:
+
+alpha = (d0 - Rcaptura)/(d0-d1)
+
+Luego:
+
+t_captura = t_(n-1) + alpha (t_n-t_(n-1))
+
+rd_captura =
+    rd_(n-1) + alpha [rd_n-rd_(n-1)]
+
+Asi se obtiene una estimacion mas precisa del tiempo y de las coordenadas
+espaciales de intercepcion que la que resultaria de tomar simplemente t_n.
+
+9.3. Valores obtenidos
+
+La ejecucion actual produce:
+
+dt [s]       t_captura [s]       x_d [m]       y_d [m]
+0.25000      142.42194116        19.80058710   88.29849025
+0.10000      142.42066379        19.80611578   88.33384584
+0.05000      142.42127888        19.80375107   88.31875419
+
+Los tres valores de tiempo son muy cercanos. Esto indica que la captura es
+estable frente a la reduccion del paso temporal dentro de la secuencia
+utilizada.
+
+9.4. Figura de evolucion
+
+Para la corrida fina dt=0.05 s se seleccionan seis instantes equiespaciados
+entre t=0 y el instante de captura. En cada panel:
+
+- se reconstruye C(x,y,t);
+- se dibuja un contourf de la concentracion;
+- se superpone la trayectoria completa acumulada del baricentro;
+- se superpone la trayectoria completa acumulada del dron;
+- se marca con un punto la posicion instantanea de cada trayectoria;
+- se conserva la proporcion geometrica mediante set_aspect("equal");
+- se marca el punto interpolado de captura en el ultimo panel.
+
+Todos los paneles comparten:
+
+niveles = linspace(0,105,22)
+
+Esto permite que la barra de color tenga la misma escala en las seis imagenes.
+La salida se guarda como:
+
+resultados/item2/2a_evolucion_y_captura.png
+
+La tabla de tiempos y coordenadas se guarda como:
+
+resultados/item2/2a_resultados_captura.txt
+
+
+10. INCISO 2.b: CONVERGENCIA TEMPORAL
+
+La funcion calcular_convergencia_edp() mantiene fija la discretizacion
+espacial y estudia exclusivamente el error temporal. El instante solicitado
+es:
+
+t* = 40 s
+
+Como 40 < 50, la evaluacion ocurre antes del apagado abrupto de la fuente y
+en una etapa suave del problema.
+
+La referencia se calcula con:
+
+metodo = RK4
+dt_ref = 0.005 s
+
+La posicion de referencia es la posicion del dron al final de una integracion
+sin parada por captura. Para los pasos evaluados se utilizan:
+
+dt = 0.25, 0.125, 0.0625, 0.03125 y 0.015625 s
+
+Cada solucion se compara con la referencia mediante:
+
+E(dt) = ||rd(t*) - rd_ref(t*)||
+
+donde rd(t*) contiene las dos coordenadas del dron. La pendiente experimental
+se obtiene ajustando:
+
+log(E) = p log(dt) + constante
+
+con numpy.polyfit. La pendiente p es la estimacion del orden global observado.
+
+10.1. Errores obtenidos
+
+La ejecucion actual produce:
+
+dt [s]        error de posicion [m]
+0.25000000    3.445406896330e-06
+0.12500000    2.638392125487e-07
+0.06250000    1.790084822043e-08
+0.03125000    1.145389929018e-09
+0.01562500    7.165022191272e-11
+
+El ajuste log-log da:
+
+p = 3.89543637 aproximadamente 3.90
+
+El orden teorico de RK4 es 4. El valor observado es consistente con esa
+prediccion, considerando que se trabaja con una referencia numerica finita y
+con errores de redondeo que adquieren importancia para los pasos mas pequenos.
+
+La interpretacion es especialmente clara porque:
+
+- t*=40 s es menor que el apagado t=50 s;
+- la malla espacial es exactamente la misma para todas las corridas;
+- por lo tanto, la diferencia medida se atribuye principalmente al paso
+  temporal del RK4 y no a una refinacion espacial mezclada.
+
+10.2. Grafica de convergencia
+
+La funcion ejecutar_convergencia_edp() genera una grafica log-log con:
+
+- la curva de errores calculados;
+- la etiqueta del orden experimental;
+- una recta punteada de referencia con pendiente 4;
+- ejes logaritmicos en dt y en el error.
+
+La recta teorica se normaliza para pasar por el primer dato:
+
+E_teorica(dt) = E(dt_0) (dt/dt_0)^4
+
+La salida se guarda como:
+
+resultados/item2/2b_convergencia_temporal.png
+
+La tabla y la explicacion teorica se guardan como:
+
+resultados/item2/2b_resultados_convergencia.txt
+
+Ademas, mostrar_resultados_convergencia_edp() imprime:
+
+- la tabla de pasos y errores;
+- el orden experimental y el orden teorico;
+- la razon por la que p aprox. 3.90 es compatible con 4;
+- la justificacion de evaluar antes del apagado;
+- la restriccion dt < dt_max.
+
+
+11. RELACION DIRECTA ENTRE LA CONSIGNA Y EL CODIGO
+
+La implementacion responde a cada pedido del Item 2 de la siguiente manera:
+
+- Dominio [0,130]x[0,130]:
+  crear_malla() genera los nodos y matrices X,Y.
+- Malla regular de 1 m:
+  x e y tienen 131 nodos y 130 subintervalos por eje.
+- Difusion:
+  calcular_difusion() usa diferencias centradas de cinco puntos.
+- Adveccion:
+  calcular_adveccion_upwind() usa diferencias hacia atras porque UV y VV
+  son positivas.
+- Reaccion:
+  derivadas_sistema_edp() evalua el termino de Michaelis-Menten.
+- Fronteras de entrada:
+  aplicar_condiciones_contorno() impone gaussianas hasta t=50 s y cero
+  despues.
+- Fronteras de salida:
+  se copia el vecino interior para aproximar flujo normal nulo.
+- Masa y baricentro:
+  calcular_baricentro() usa Simpson bidimensional.
+- Acoplamiento:
+  el baricentro calculado por la EDP determina la direccion del dron.
+- Metodo temporal:
+  integrar_edo() aplica RK4 desde cero.
+- Captura:
+  distancia_captura() detiene la integracion y simulacion_edp.py interpola
+  el cruce del radio de 1.2 m.
+- Convergencia:
+  convergencia_edp.py compara posiciones a t*=40 s y calcula la pendiente
+  log-log con numpy.polyfit.
+- Salidas:
+  todas las figuras y tablas del Item 2 quedan dentro de resultados/item2.
+
+
+12. RESPUESTA SINTETICA A LA CONSIGNA 2
+
+El Item 2 modela una pluma contaminante continua mediante una EDP de
+adveccion-difusion-reaccion en un dominio cuadrado de 130 m por 130 m. La
+concentracion entra por x=0 e y=0 con perfiles gaussianos, se transporta por
+el viento, se difunde y se consume mediante una reaccion saturable.
+
+La discretizacion espacial se realiza sobre una malla de 131x131 nodos. La
+difusion se aproxima con un laplaciano centrado de segundo orden, la
+adveccion con upwind de primer orden y la reaccion punto a punto. La
+cuadratura de Simpson permite calcular la masa total y el baricentro sin
+introducir un solver adicional.
+
+El metodo de lineas produce 17161 ecuaciones para la concentracion y dos
+ecuaciones adicionales para la posicion del dron. El vector completo tiene
+17163 componentes y se integra con RK4. La proyeccion posterior a cada paso
+mantiene las condiciones de contorno y la condicion de parada detecta la
+captura.
+
+Para el inciso 2.a se comparan tres pasos temporales estables. El tiempo de
+captura se mantiene alrededor de 142.42 s y las coordenadas obtenidas son
+consistentes entre las resoluciones. Los mapas de contorno muestran
+simultaneamente la evolucion de la pluma, la trayectoria de su baricentro,
+la trayectoria del dron y el punto interpolado de captura.
+
+Para el inciso 2.b se fija la malla espacial y se evalua el error a t=40 s,
+antes del apagado de la fuente y antes de la captura. El ajuste experimental
+produce p aproximadamente igual a 3.90, cercano al orden teorico cuatro del
+RK4. La restriccion explicita dt_max aproximadamente 0.339 s se verifica
+antes de ejecutar las corridas y todos los pasos utilizados la cumplen
+estrictamente.
