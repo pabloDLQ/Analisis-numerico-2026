@@ -1,41 +1,16 @@
 """Cálculo y visualización separados del análisis de convergencia temporal."""
 
-import importlib.util
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+from .integradores import integrar_edo
+from .sistema_dinamico import X0, derivadas_sistema
+
 
 # Se identifica la carpeta src para localizar los módulos de los incisos anteriores.
 DIRECTORIO_SRC = Path(__file__).resolve().parent
-
-
-def _cargar_modulo(nombre, ruta):
-    """Carga un archivo Python aunque su nombre comience con un dígito."""
-
-    # Se crea la especificación que vincula un nombre interno con el archivo.
-    especificacion = importlib.util.spec_from_file_location(nombre, ruta)
-    # Se rechaza una especificación incompleta porque no permitiría ejecutar el módulo.
-    if especificacion is None or especificacion.loader is None:
-        raise ImportError(f"No se pudo cargar el módulo ubicado en {ruta}.")
-    # Se crea el objeto módulo vacío a partir de la especificación.
-    modulo = importlib.util.module_from_spec(especificacion)
-    # Se ejecuta el código del archivo dentro del módulo creado.
-    especificacion.loader.exec_module(modulo)
-    # Se devuelve el módulo para acceder a sus funciones y constantes.
-    return modulo
-
-
-# Se carga la definición del sistema dinámico del inciso 1.a.
-modulo_sistema = _cargar_modulo("sistema_dinamico", DIRECTORIO_SRC / "1a_sistema_dinamico.py")
-# Se extrae la función que calcula el lado derecho F(t, X).
-derivadas_sistema = modulo_sistema.derivadas_sistema
-# Se carga el módulo que contiene los integradores Euler y RK4.
-modulo_integradores = _cargar_modulo("integradores", DIRECTORIO_SRC / "1b_integradores.py")
-# Se extrae la función maestra de integración temporal.
-integrar_edo = modulo_integradores.integrar_edo
-
 
 def _estado_en_tiempo(t_out, X_out, tiempo_objetivo):
     """Obtiene el estado asociado a un instante representado en la grilla."""
@@ -81,7 +56,7 @@ def calcular_errores_y_ordenes():
     t_ref, X_ref = integrar_edo(
         derivadas_sistema,
         (t_inicial, t_final),
-        modulo_sistema.X0,
+        X0,
         dt_ref,
         "rk4",
     )
@@ -107,7 +82,7 @@ def calcular_errores_y_ordenes():
             t_out, X_out = integrar_edo(
                 derivadas_sistema,
                 (t_inicial, t_final),
-                modulo_sistema.X0,
+                X0,
                 dt,
                 metodo,
             )
@@ -122,7 +97,7 @@ def calcular_errores_y_ordenes():
                 _, estados_hasta_t1 = integrar_edo(
                     derivadas_sistema,
                     (t_inicial, t1),
-                    modulo_sistema.X0,
+                    X0,
                     dt,
                     metodo,
                 )

@@ -1,0 +1,337 @@
+TRABAJO PRACTICO 6 - EXPLICACION DE LA IMPLEMENTACION
+Consigna 1: sistema acoplado de dispersion de una nube contaminante y navegacion de un dron
+
+Este archivo explica como se organiza el codigo del proyecto y como cada parte
+responde a los incisos 1.a, 1.b y 1.c de la consigna. No se considera el modelo
+con ecuaciones en derivadas parciales de la consigna 2.
+
+
+1. ORGANIZACION GENERAL DEL PROYECTO
+
+El programa se divide en un archivo principal y cuatro modulos dentro de src:
+
+- main.py: punto de entrada. Presenta un menu y llama a las funciones de los
+  modulos correspondientes.
+- src/sistema_dinamico.py: define el modelo matematico F(t,X), es decir, las
+  derivadas del sistema de seis ecuaciones diferenciales.
+- src/integradores.py: implementa desde cero los metodos de Euler y Runge-Kutta
+  de orden cuatro (RK4).
+- src/simulacion.py: integra el sistema y genera los mapas de concentracion y
+  las trayectorias solicitadas en el inciso 1.b.
+- src/convergencia.py: calcula errores globales, ordenes experimentales y las
+  curvas log-log solicitadas en el inciso 1.c.
+
+Los imports se realizan directamente entre modulos. Por ejemplo, main.py
+importa las funciones de simulacion.py y convergencia.py, mientras que estos
+modulos importan integrar_edo, X0 y derivadas_sistema. No se utilizan
+solucionadores automaticos de ecuaciones diferenciales.
+
+
+2. ARCHIVO main.py: EJECUCION DEL PROGRAMA
+
+main.py importa directamente:
+
+- ejecutar_simulacion_1b, para resolver y graficar la evolucion del sistema;
+- calcular_errores_y_ordenes, para obtener los errores y ordenes de convergencia;
+- mostrar_resultados_consola, para imprimir los ordenes en pantalla;
+- graficar_curvas_error, para generar las curvas log-log.
+
+La funcion main() muestra tres opciones:
+
+1. Grafica de evolucion del sistema.
+   Llama a ejecutar_simulacion_1b(). Esta opcion responde a la parte grafica
+   del inciso 1.b.
+
+2. Resultados numericos de convergencia.
+   Llama a calcular_errores_y_ordenes() y luego imprime las pendientes
+   experimentales. Esta opcion responde a una parte del inciso 1.c.
+
+3. Graficas de curvas de error.
+   Calcula los datos de convergencia y llama a graficar_curvas_error(). Esta
+   opcion responde a la parte grafica del inciso 1.c.
+
+Si se ingresa otra opcion, el programa informa que no es valida. El bloque
+if __name__ == "__main__" permite ejecutar main.py como programa principal.
+
+
+3. INCISO 1.a: PLANTEO ANALITICO DEL SISTEMA
+
+El archivo sistema_dinamico.py representa el estado mediante el vector:
+
+X(t) = [xc(t), yc(t), sigma(t), M(t), xd(t), yd(t)]
+
+Sus componentes son:
+
+- xc, yc: coordenadas del centro de la nube contaminante;
+- sigma: radio o ancho de dispersion de la nube;
+- M: masa o concentracion total remanente;
+- xd, yd: coordenadas del dron.
+
+La condicion inicial implementada es:
+
+X(0) = [20, 20, 7, 7, 100, 100]
+
+Por lo tanto:
+
+- rc(0) = (20,20) m, como pide la consigna;
+- sigma(0) = 7 m;
+- M(0) = 7;
+- rd(0) = (100,100) m.
+
+El intervalo de integracion es [0,60] segundos.
+
+La funcion derivadas_sistema(t,X) devuelve el vector F(t,X):
+
+F(t,X) = [dxc/dt, dyc/dt, dsigma/dt, dM/dt, dxd/dt, dyd/dt].
+
+Antes de calcular las derivadas, el codigo verifica que X tenga exactamente
+seis componentes. Esto asegura que el estado conserve la estructura del modelo.
+
+
+3.1. Modelo de la nube y del viento
+
+El tiempo se reduce al ciclo periodico de viento mediante:
+
+tau = t mod 12
+
+Si tau < 5, se activa la rafaga:
+
+uv(t) = 0.4 + 2.8 sin^2(pi tau / 5)
+
+vv(t) = 0.2 + 2.4 sin^2(pi tau / 5) sin(0.6 t)
+
+Si tau >= 5, se utiliza el viento de fondo:
+
+uv(t) = 0.4
+vv(t) = 0.2
+
+La nube es transportada por el viento, por lo que:
+
+dxc/dt = uv(t)
+dyc/dt = vv(t)
+
+La expansion por difusion se implementa como:
+
+dsigma/dt = D/sigma, con D = 0.5
+
+El decaimiento de la masa se implementa como:
+
+dM/dt = -k M, con k = 0.008
+
+Estas cuatro ecuaciones representan la dispersion, el transporte y la
+degradacion quimica indicados en el modelo fisico de la consigna.
+
+
+3.2. Modelo de navegacion del dron
+
+El codigo construye el vector relativo desde el dron hacia el centro de la
+nube:
+
+rc - rd = (xc-xd, yc-yd)
+
+Luego calcula su norma, que representa la distancia entre ambos:
+
+distancia = ||rc-rd||
+
+Cuando la distancia es mayor que 1.2 m, se calcula el versor hacia el objetivo:
+
+u_hat = (rc-rd)/||rc-rd||
+
+Tambien se construye el versor perpendicular:
+
+u_perp = (-uy, ux)
+
+La orientacion con barrido lateral es:
+
+h(t) = u_hat + A sin(omega t) u_perp
+
+con A = 0.75 y omega = 0.9 rad/s. Para conservar la rapidez propia del dron,
+el vector se normaliza y se multiplica por vd = 4.0 m/s. Ademas, se suma el
+arrastre pasivo del viento con alfa = 0.5:
+
+rd' = vd h/||h|| + alfa (uv,vv)
+
+Esto corresponde a la ley de navegacion de la consigna. Para una nube
+gaussiana, el gradiente de concentracion apunta hacia el centro, por lo que
+dirigir el dron hacia rc es consistente con seguir el gradiente local.
+
+Cuando la distancia es menor que 1.2 m, se activa la captura. En ese caso el
+codigo elimina la velocidad propia y establece:
+
+rd' = (uv,vv)
+
+De esta manera, el dron queda arrastrado exclusivamente por el viento, tal
+como indica la nota de control.
+
+
+4. INCISO 1.b: RESOLUCION NUMERICA
+
+El archivo integradores.py define la funcion:
+
+integrar_edo(funcion_derivada, t_span, X0, dt, metodo)
+
+Esta funcion es un integrador generico para un sistema:
+
+dX/dt = funcion_derivada(t,X)
+
+Primero valida que:
+
+- el estado inicial sea un vector;
+- el intervalo temporal este correctamente orientado;
+- dt sea finito y positivo;
+- el metodo elegido sea Euler o RK4.
+
+El integrador guarda los tiempos y estados en arreglos de NumPy. Si el paso no
+divide exactamente el intervalo, ajusta el ultimo paso para terminar
+exactamente en el extremo final.
+
+
+4.1. Metodo de Euler
+
+Para cada paso, Euler calcula la pendiente en el punto actual:
+
+k1 = F(t_n,X_n)
+
+y actualiza el estado mediante:
+
+X_(n+1) = X_n + dt k1
+
+Es un metodo explicito de primer orden global. Es sencillo y barato, pero su
+error disminuye mas lentamente al reducir dt.
+
+
+4.2. Metodo de Runge-Kutta de orden cuatro
+
+RK4 calcula cuatro pendientes:
+
+k1 = F(t_n,X_n)
+k2 = F(t_n+dt/2, X_n+dt k1/2)
+k3 = F(t_n+dt/2, X_n+dt k2/2)
+k4 = F(t_n+dt, X_n+dt k3)
+
+Luego combina las pendientes:
+
+X_(n+1) = X_n + dt (k1 + 2 k2 + 2 k3 + k4)/6
+
+Es un metodo explicito de orden cuatro. Se elige junto con Euler porque permite
+comparar un metodo basico de primer orden con otro de mayor precision y medir
+experimentalmente la diferencia de convergencia solicitada.
+
+
+4.3. Generacion de la concentracion y de las trayectorias
+
+El archivo simulacion.py usa RK4 con dt = 0.05 s para integrar desde 0 hasta
+60 s. Luego construye una malla espacial x,y entre 0 y 160 m.
+
+La funcion concentracion_gaussiana implementa:
+
+C(x,y,t) = M(t)/(2 pi sigma(t)^2)
+           * exp(-((x-xc(t))^2 + (y-yc(t))^2)/(2 sigma(t)^2))
+
+Para cada instante t = 0, 12, 24, 36, 48 y 60 s:
+
+- se recupera el estado correspondiente;
+- se calcula la concentracion sobre toda la malla;
+- se dibuja un mapa de contornos coloreado;
+- se superpone la trayectoria historica de la nube;
+- se superpone la trayectoria historica del dron;
+- se marcan las posiciones actuales de ambos.
+
+El resultado es una figura de dos filas por tres columnas, que permite observar
+simultaneamente la evolucion de la nube y la persecucion del dron. La imagen
+se guarda como:
+
+graficos/1b_evolucion_concentracion_y_trayectorias.png
+
+Esta salida responde directamente a la visualizacion pedida en el inciso 1.b.
+
+
+5. INCISO 1.c: ERRORES Y CONVERGENCIA
+
+El archivo convergencia.py estudia el error de posicion del dron para Euler y
+RK4. Se evalua en dos instantes:
+
+- t1 = 15 s, durante la persecucion activa en vuelo libre;
+- t2 = 60 s, al final de la mision.
+
+Primero se genera una solucion de referencia con RK4 y:
+
+dt_ref = 0.001 s
+
+Luego se repite la integracion para:
+
+dt = 2, 1, 0.5, 0.25, 0.125 y 0.0625 s
+
+Para cada metodo y cada paso se calcula el error de posicion:
+
+E(dt) = ||rd(dt) - rd,ref||
+
+donde rd contiene las dos coordenadas del dron. Si t = 15 s no pertenece
+exactamente a la grilla generada por un paso dado, el codigo vuelve a integrar
+hasta 15 s usando un ultimo paso parcial. Asi la comparacion se realiza en el
+mismo instante fisico para todos los valores de dt.
+
+Para t = 60 s, el integrador ya termina exactamente en el extremo final y se
+utiliza el estado final.
+
+El orden experimental se obtiene ajustando una recta en escala log-log:
+
+log(E) = p log(dt) + constante
+
+La pendiente p es la estimacion del orden de convergencia. El codigo calcula
+esa pendiente con numpy.polyfit.
+
+Los valores obtenidos en la ejecucion actual son aproximadamente:
+
+                    t = 15 s       t = 60 s
+Euler                 0.87           0.63
+RK4                   3.90           0.91
+
+Los valores pueden interpretarse de la siguiente manera:
+
+- En t = 15 s, RK4 presenta un orden cercano a 4, acorde con la teoria de
+  RK4 para un campo suficientemente suave. Euler presenta un orden cercano a 1.
+- En t = 60 s, el orden observado de RK4 baja considerablemente.
+
+La razon de esta diferencia es la regla de captura. La funcion F(t,X) cambia de
+regimen cuando la distancia pasa por 1.2 m: antes de la captura el dron tiene
+propulsion propia, barrido lateral y arrastre; despues solo se mueve con el
+viento. Esa conmutacion hace que el campo vectorial no sea completamente suave
+en la frontera de captura. Como consecuencia, la hipotesis que permite observar
+el orden teorico cuatro de RK4 deja de cumplirse globalmente en el intervalo
+que incluye la captura. Por eso el orden experimental al tiempo final puede
+acercarse a un valor mucho menor que cuatro.
+
+La funcion graficar_curvas_error genera dos paneles log-log, uno para t = 15 s
+y otro para t = 60 s. En cada panel muestra las curvas de Euler y RK4, junto
+con sus pendientes experimentales. La imagen se guarda como:
+
+graficos/1c_convergencia_errores.png
+
+
+6. RESPUESTA SINTETICA A LA CONSIGNA 1
+
+El sistema acoplado se formula con seis variables de estado:
+
+X = [xc,yc,sigma,M,xd,yd]
+
+Las primeras cuatro ecuaciones modelan el transporte por viento, la difusion y
+el decaimiento de la nube. Las dos ultimas modelan la navegacion del dron
+hacia el centro de la nube, incluyendo el barrido lateral, el arrastre pasivo
+y el cambio a movimiento puramente arrastrado cuando alcanza una distancia
+menor que 1.2 m.
+
+La implementacion resuelve el sistema desde cero mediante Euler y RK4, sin
+usar un solucionador automatico. RK4 se utiliza con un paso fino para producir
+la visualizacion principal y la referencia numerica, mientras que ambos
+metodos se comparan con una secuencia de pasos decrecientes para estudiar el
+error.
+
+La figura de evolucion permite verificar visualmente el transporte y la
+expansion de la nube, junto con las trayectorias del centro contaminante y del
+dron en los seis instantes pedidos. El estudio de convergencia muestra que
+Euler se comporta aproximadamente como un metodo de orden uno durante la
+persecucion, mientras que RK4 alcanza aproximadamente orden cuatro en la fase
+suave. Al incluir la captura y la conmutacion de la ley de control, el orden
+observado al final de la mision disminuye, lo que explica la diferencia entre
+los dos instantes evaluados.

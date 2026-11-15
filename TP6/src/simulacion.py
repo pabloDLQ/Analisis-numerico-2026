@@ -1,41 +1,16 @@
 """Simulación y visualización del sistema de dispersión y persecución."""
 
-import importlib.util
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+from .integradores import integrar_edo
+from .sistema_dinamico import X0, derivadas_sistema
+
 
 # Se obtiene la carpeta que contiene este archivo para construir rutas portables.
 DIRECTORIO_SRC = Path(__file__).resolve().parent
-
-
-def cargar_modulo(nombre, ruta):
-    """Carga un módulo Python desde una ruta, incluso si su nombre comienza con un dígito."""
-
-    # Se crea una especificación de importación asociada al archivo solicitado.
-    especificacion = importlib.util.spec_from_file_location(nombre, ruta)
-    # Se informa explícitamente si Python no pudo crear la especificación.
-    if especificacion is None or especificacion.loader is None:
-        raise ImportError("No se pudo construir la especificación del módulo.")
-    # Se crea un objeto módulo vacío a partir de la especificación.
-    modulo = importlib.util.module_from_spec(especificacion)
-    # Se ejecuta el código fuente dentro del objeto módulo recién creado.
-    especificacion.loader.exec_module(modulo)
-    # Se devuelve el módulo cargado para acceder a sus funciones y constantes.
-    return modulo
-
-
-# Se carga la definición del sistema dinámico del inciso 1.a.
-modulo_sistema = cargar_modulo("sistema_dinamico", DIRECTORIO_SRC / "1a_sistema_dinamico.py")
-# Se extrae la función de derivadas requerida por el integrador.
-derivadas_sistema = modulo_sistema.derivadas_sistema
-# Se carga el módulo propio de integradores, sin usar scipy.integrate.
-modulo_integradores = cargar_modulo("integradores", DIRECTORIO_SRC / "1b_integradores.py")
-# Se extrae la función maestra que permite seleccionar RK4.
-integrar_edo = modulo_integradores.integrar_edo
-
 
 def concentracion_gaussiana(x, y, xc, yc, sigma, masa):
     """Evalúa la concentración gaussiana bidimensional de la nube."""
@@ -57,7 +32,7 @@ def ejecutar_simulacion_1b():
     # Se fija el paso fino para resolver la dinámica con buena precisión temporal.
     dt = 0.05
     # Se integra desde cero hasta sesenta segundos con el método RK4.
-    t_out, X_out = integrar_edo(derivadas_sistema, (0.0, 60.0), modulo_sistema.X0, dt, "rk4")
+    t_out, X_out = integrar_edo(derivadas_sistema, (0.0, 60.0), X0, dt, "rk4")
     # Se define la malla espacial común a todos los subgráficos.
     x = np.linspace(0.0, 160.0, 161)
     # Se define la segunda coordenada espacial con los mismos límites fijos.
